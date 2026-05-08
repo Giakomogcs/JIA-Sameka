@@ -9,10 +9,7 @@
         "color": 7
       },
       "type": "n8n-nodes-base.stickyNote",
-      "position": [
-        0,
-        0
-      ],
+      "position": [0, 0],
       "typeVersion": 1,
       "id": "c93b3cd4-ce43-4481-bdc5-8aa053a37a66",
       "name": "Sticky Note5"
@@ -25,10 +22,7 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        -336,
-        848
-      ],
+      "position": [-336, 848],
       "id": "64f38392-af9b-477a-854e-b98f0c265abf",
       "name": "Delete Edited Message",
       "credentials": {
@@ -48,10 +42,7 @@
       },
       "id": "e7021b23-f4ff-4155-a3c7-76d81c391fa0",
       "name": "PruneResponse",
-      "position": [
-        -128,
-        848
-      ],
+      "position": [-128, 848],
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1
     },
@@ -66,10 +57,7 @@
       "name": "Sticky Note3",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [
-        752,
-        240
-      ]
+      "position": [752, 240]
     },
     {
       "parameters": {
@@ -81,10 +69,7 @@
       "name": "Sticky Note4",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [
-        -560,
-        240
-      ]
+      "position": [-560, 240]
     },
     {
       "parameters": {
@@ -92,10 +77,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
       "typeVersion": 1,
-      "position": [
-        800,
-        704
-      ],
+      "position": [800, 704],
       "id": "f4c1a2cc-0176-44b8-af2f-72c22ad6e8f4",
       "name": "Embeddings Google Gemini",
       "credentials": {
@@ -123,10 +105,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
       "typeVersion": 1,
-      "position": [
-        976,
-        400
-      ],
+      "position": [976, 400],
       "id": "6a959429-8260-46e3-bcaf-bc2c02c814ea",
       "name": "search_knowledge_base",
       "credentials": {
@@ -143,10 +122,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
-      "position": [
-        -704,
-        704
-      ],
+      "position": [-704, 704],
       "id": "b675e7bb-4b8e-48da-9590-5d5f685985ca",
       "name": "Google Gemini Chat Model",
       "credentials": {
@@ -168,10 +144,7 @@
       },
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.5,
-      "position": [
-        32,
-        672
-      ],
+      "position": [32, 672],
       "id": "57311e59-6655-43ba-bbda-3acc1a865d90",
       "name": "List Documents",
       "credentials": {
@@ -193,10 +166,7 @@
       },
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.5,
-      "position": [
-        304,
-        672
-      ],
+      "position": [304, 672],
       "id": "1c5af947-85eb-4583-9c4b-252425c17ad3",
       "name": "Get File Contents",
       "credentials": {
@@ -216,10 +186,7 @@
       },
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.5,
-      "position": [
-        160,
-        672
-      ],
+      "position": [160, 672],
       "id": "23cfa064-139d-45b1-ad14-5c2c19a62320",
       "name": "Query Document Rows",
       "credentials": {
@@ -241,10 +208,7 @@
       "name": "RAG AI Agent",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.6,
-      "position": [
-        -32,
-        336
-      ]
+      "position": [-32, 336]
     },
     {
       "parameters": {
@@ -254,10 +218,7 @@
       "name": "Respond to Webhook",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [
-        320,
-        336
-      ]
+      "position": [320, 336]
     },
     {
       "parameters": {
@@ -270,10 +231,7 @@
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [
-        -496,
-        336
-      ],
+      "position": [-496, 336],
       "webhookId": "693e9c67-afca-4f79-9a88-a3f6f5972ddd"
     },
     {
@@ -300,10 +258,7 @@
       "name": "Edit Fields",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [
-        -240,
-        336
-      ]
+      "position": [-240, 336]
     },
     {
       "parameters": {
@@ -313,10 +268,7 @@
       "name": "Postgres Chat Memory",
       "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
       "typeVersion": 1.1,
-      "position": [
-        -96,
-        672
-      ],
+      "position": [-96, 672],
       "credentials": {
         "postgres": {
           "id": "jFjeYH6Nt3aRNkoM",
@@ -331,10 +283,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
       "typeVersion": 1,
-      "position": [
-        -704,
-        352
-      ],
+      "position": [-704, 352],
       "id": "217def7b-8805-4ca6-a6ea-9f0567b15ac1",
       "name": "OpenRouter Chat Model",
       "credentials": {
@@ -353,10 +302,7 @@
       },
       "id": "a90c9fae-70d3-4d63-9761-9ac18c2a39d6",
       "name": "PruneWebhook",
-      "position": [
-        -544,
-        848
-      ],
+      "position": [-544, 848],
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "webhookId": "f762ae4e-b5d4-42be-982b-e3649b2a45fd"
@@ -370,10 +316,7 @@
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [
-        -576,
-        48
-      ],
+      "position": [-576, 48],
       "id": "826ed397-3a7c-4cbc-a575-de6261acc114",
       "name": "Test Connection",
       "webhookId": "291e54fe-5a3b-4565-9fa3-c18879fd6d28"
@@ -390,10 +333,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
       "typeVersion": 1.3,
-      "position": [
-        -704,
-        528
-      ],
+      "position": [-704, 528],
       "id": "70de627b-bc86-4e03-8b0a-e8e54fe69afa",
       "name": "Anthropic Chat Model",
       "credentials": {
@@ -424,10 +364,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
-      "position": [
-        576,
-        624
-      ],
+      "position": [576, 624],
       "id": "c66de7cb-9648-4def-ab12-a259bf89d3f3",
       "name": "Consultar_Leads_Oporttuna"
     },
@@ -438,10 +375,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatAzureOpenAi",
       "typeVersion": 1,
-      "position": [
-        -288,
-        640
-      ],
+      "position": [-288, 640],
       "id": "4b2f4873-d868-444a-89c4-98bfe9e4ceb3",
       "name": "Azure OpenAI Chat Model",
       "credentials": {
@@ -472,10 +406,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
-      "position": [
-        448,
-        704
-      ],
+      "position": [448, 704],
       "id": "21c98892-f2c0-4840-9542-daba59e73b3f",
       "name": "Consultar_IBGE"
     },
@@ -500,10 +431,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
-      "position": [
-        624,
-        464
-      ],
+      "position": [624, 464],
       "id": "9d6474b0-4e51-4aef-9955-bf8f5b46c8a7",
       "name": "Consultar_Planilha_Inteligente"
     },
@@ -560,10 +488,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
-      "position": [
-        800,
-        464
-      ],
+      "position": [800, 464],
       "id": "f3a1b8c2-1d4e-47a9-b6f1-9e2c3d4f5a6b",
       "name": "Consultar_Imagens_Produtos"
     },
@@ -574,10 +499,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.embeddingsAzureOpenAi",
       "typeVersion": 1,
-      "position": [
-        976,
-        576
-      ],
+      "position": [976, 576],
       "id": "b0da7544-baf3-452f-a8b8-0e2568498f25",
       "name": "Embeddings Azure OpenAI",
       "credentials": {
@@ -593,10 +515,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.chatTrigger",
       "typeVersion": 1.4,
-      "position": [
-        -496,
-        480
-      ],
+      "position": [-496, 480],
       "id": "c5f3f7f9-af9d-4683-99ae-2f2b46ead2e6",
       "name": "When chat message received",
       "webhookId": "3d3dd4b1-f365-42ed-a3cb-4148f8a43aa0"
@@ -616,9 +535,7 @@
       ]
     },
     "Embeddings Google Gemini": {
-      "ai_embedding": [
-        []
-      ]
+      "ai_embedding": [[]]
     },
     "search_knowledge_base": {
       "ai_tool": [
@@ -632,9 +549,7 @@
       ]
     },
     "Google Gemini Chat Model": {
-      "ai_languageModel": [
-        []
-      ]
+      "ai_languageModel": [[]]
     },
     "List Documents": {
       "ai_tool": [
@@ -802,9 +717,7 @@
       ]
     },
     "Anthropic Chat Model": {
-      "ai_languageModel": [
-        []
-      ]
+      "ai_languageModel": [[]]
     }
   },
   "active": true,

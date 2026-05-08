@@ -3892,7 +3892,12 @@
               </div>
               <div class="lead-card-body">`;
           if (lead.cnpj) {
-            const cnpjFmt = String(lead.cnpj).replace(/\D/g, "").replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2}).*/, "$1.$2.$3/$4-$5");
+            const cnpjFmt = String(lead.cnpj)
+              .replace(/\D/g, "")
+              .replace(
+                /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2}).*/,
+                "$1.$2.$3/$4-$5",
+              );
             html += `<div class="lead-section">
                   <div class="lead-section-label"><i data-lucide="hash"></i> CNPJ</div>
                   <div class="lead-cnpj">${cnpjFmt || lead.cnpj}</div>
