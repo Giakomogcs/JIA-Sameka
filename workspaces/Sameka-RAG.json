@@ -624,7 +624,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "DROP TABLE IF EXISTS sameka_document_rows CASCADE;\nDROP TABLE IF EXISTS sameka_document_metadata CASCADE;\nDROP TABLE IF EXISTS sameka_chat_message CASCADE;\n\n-- 1. Tabela de Arquivos\nCREATE TABLE sameka_document_metadata (\n    id TEXT PRIMARY KEY,\n    title TEXT,\n    url TEXT,\n    created_at TIMESTAMP DEFAULT NOW(),\n    schema TEXT,\n    session_id TEXT\n);\n\n-- 2. Tabela de Linhas (Excel/CSV)\nCREATE TABLE sameka_document_rows (\n    id SERIAL PRIMARY KEY,\n    dataset_id TEXT REFERENCES sameka_document_metadata(id) ON DELETE CASCADE,\n    row_data JSONB\n);\n\n-- 3. Tabela de Memória do Chat\nCREATE TABLE IF NOT EXISTS sameka_chat_message (\n    id SERIAL PRIMARY KEY,\n    session_id TEXT NOT NULL,\n    user_id UUID,\n    message JSONB NOT NULL,\n    created_at TIMESTAMP DEFAULT NOW()\n);\nCREATE INDEX IF NOT EXISTS idx_chat_message_user_id ON sameka_chat_message (user_id);\n\n-- 4. TRIGGER da migration 007 (função criada UMA vez como owner via Supabase SQL Editor).\n--    Re-anexa o trigger \u00e0 nova tabela. Se a fun\u00e7\u00e3o n\u00e3o existir, ignora silenciosamente.\nDO $$\nBEGIN\n  IF EXISTS (\n    SELECT 1 FROM pg_proc WHERE proname = 'trg_set_chat_user_id'\n  ) THEN\n    EXECUTE 'DROP TRIGGER IF EXISTS trg_chat_set_user_id ON sameka_chat_message';\n    EXECUTE 'CREATE TRIGGER trg_chat_set_user_id BEFORE INSERT ON sameka_chat_message FOR EACH ROW EXECUTE FUNCTION trg_set_chat_user_id()';\n  END IF;\nEND $$;",
+        "query": "-- ✅ SETUP IDEMPOTENTE — Não destrói dados.\n-- Tabelas de USUÁRIOS / CHAT / SESSIONS NÃO ficam mais aqui.\n-- Elas vivem no workflow \"Sameka-DB-Schema-Setup\" e nas migrations (001-007).\n\n-- 1. Tabela de Arquivos (Drive metadata)\nCREATE TABLE IF NOT EXISTS sameka_document_metadata (\n    id TEXT PRIMARY KEY,\n    title TEXT,\n    url TEXT,\n    created_at TIMESTAMP DEFAULT NOW(),\n    schema TEXT,\n    session_id TEXT,\n    modified_time TEXT,\n    content_hash TEXT,\n    last_indexed_at TIMESTAMP\n);\n\n-- Garante colunas novas em bases pré-existentes (sem perder dados)\nALTER TABLE sameka_document_metadata ADD COLUMN IF NOT EXISTS modified_time TEXT;\nALTER TABLE sameka_document_metadata ADD COLUMN IF NOT EXISTS content_hash TEXT;\nALTER TABLE sameka_document_metadata ADD COLUMN IF NOT EXISTS last_indexed_at TIMESTAMP;\n\n-- 2. Tabela de Linhas (Excel/CSV)\nCREATE TABLE IF NOT EXISTS sameka_document_rows (\n    id SERIAL PRIMARY KEY,\n    dataset_id TEXT REFERENCES sameka_document_metadata(id) ON DELETE CASCADE,\n    row_data JSONB\n);",
         "options": {}
       },
       "id": "6bf686fb-e067-4638-b75c-516e004da2bc",
@@ -642,7 +642,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "-- Habilita extensão vector\nCREATE EXTENSION IF NOT EXISTS vector;\n\n-- 4. Tabela de Vetores (RAG)\nDROP TABLE IF EXISTS sameka_documents CASCADE;\n\nCREATE TABLE sameka_documents (\n  id bigserial PRIMARY KEY,\n  content text, \n  metadata jsonb, \n  embedding vector(1536) \n);\n\n-- Função de busca (Match)\nDROP FUNCTION IF EXISTS sameka_match_documents;\n\nCREATE FUNCTION sameka_match_documents (\n  query_embedding vector(1536),\n  match_count int DEFAULT NULL,\n  filter jsonb DEFAULT '{}'\n) RETURNS TABLE (\n  id bigint,\n  content text,\n  metadata jsonb,\n  similarity float\n)\nLANGUAGE plpgsql\nAS $$\n#variable_conflict use_column\nBEGIN\n  RETURN QUERY\n  SELECT\n    id,\n    content,\n    metadata,\n    1 - (sameka_documents.embedding <=> query_embedding) AS similarity\n  FROM sameka_documents -- CORREÇÃO: alterado de 'documents' para 'sameka_documents'\n  WHERE metadata @> filter\n  ORDER BY sameka_documents.embedding <=> query_embedding\n  LIMIT match_count;\nEND;\n$$;",
+        "query": "-- ✅ Idempotente. Preserva todos os vetores já indexados.\nCREATE EXTENSION IF NOT EXISTS vector;\n\n-- Tabela de Vetores (RAG)\nCREATE TABLE IF NOT EXISTS sameka_documents (\n  id bigserial PRIMARY KEY,\n  content text,\n  metadata jsonb,\n  embedding vector(1536)\n);\n\n-- Função de busca (Match) — pode dropar e recriar, é stateless\nDROP FUNCTION IF EXISTS sameka_match_documents;\nCREATE FUNCTION sameka_match_documents (\n  query_embedding vector(1536),\n  match_count int DEFAULT NULL,\n  filter jsonb DEFAULT '{}'\n) RETURNS TABLE (\n  id bigint,\n  content text,\n  metadata jsonb,\n  similarity float\n)\nLANGUAGE plpgsql\nAS $$\n#variable_conflict use_column\nBEGIN\n  RETURN QUERY\n  SELECT\n    id,\n    content,\n    metadata,\n    1 - (sameka_documents.embedding <=> query_embedding) AS similarity\n  FROM sameka_documents\n  WHERE metadata @> filter\n  ORDER BY sameka_documents.embedding <=> query_embedding\n  LIMIT match_count;\nEND;\n$$;",
         "options": {}
       },
       "id": "b9f459e8-aedf-4da7-bc40-76bafcd81258",
@@ -660,11 +660,11 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "-- PASSO 1: Criar índices para acelerar a busca (Evita o erro de Timeout)\nCREATE INDEX IF NOT EXISTS sameka_idx_doc_metadata_session \nON sameka_document_metadata(session_id);\n\nCREATE INDEX IF NOT EXISTS sameka_idx_documents_metadata_gin \nON sameka_documents USING GIN (metadata);\n\n-- PASSO 2: Apagar os Vetores (Tabela documents)\n-- Como esta tabela NÃO tem chave estrangeira, precisamos apagar explicitamente\nDELETE FROM sameka_documents \nWHERE metadata->>'session_id' IS NULL;\n\n-- PASSO 3: Apagar os Metadados (Tabela document_metadata)\n-- Isso vai apagar AUTOMATICAMENTE os itens da tabela 'document_rows'\n-- por causa da regra 'ON DELETE CASCADE' que você definiu.\nDELETE FROM sameka_document_metadata \nWHERE session_id IS NULL;",
+        "query": "-- ✅ Apenas garante índices. NÃO apaga dados.\n-- A limpeza por-arquivo acontece em \"Delete Old Doc Rows1\" SOMENTE quando o arquivo mudou.\nCREATE INDEX IF NOT EXISTS sameka_idx_doc_metadata_session\nON sameka_document_metadata(session_id);\n\nCREATE INDEX IF NOT EXISTS sameka_idx_doc_metadata_modified\nON sameka_document_metadata(modified_time);\n\nCREATE INDEX IF NOT EXISTS sameka_idx_documents_metadata_gin\nON sameka_documents USING GIN (metadata);\n\n-- Índice para acelerar lookups por file_id no JSON metadata\nCREATE INDEX IF NOT EXISTS sameka_idx_documents_file_id\nON sameka_documents ((metadata->>'file_id'));",
         "options": {}
       },
       "id": "ac4374c3-ffed-4ffc-99ce-8ccd84faa24f",
-      "name": "Delete DRIVE Data Only1",
+      "name": "Ensure RAG Indexes",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [2784, 240],
@@ -715,6 +715,18 @@
               "id": "d79e06cc-823f-47e6-bfa6-dd2f0cb4264d",
               "name": "session_id",
               "value": "={{ $if( $(\"InsertFile-drive\").isExecuted, $(\"InsertFile-drive\").first().json.body.sessionId, null) }}",
+              "type": "string"
+            },
+            {
+              "id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+              "name": "modified_time",
+              "value": "={{ $input.item.json.modifiedTime || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "b2c3d4e5-f6a7-4b6c-9d0e-1f2a3b4c5d6e",
+              "name": "md5_checksum",
+              "value": "={{ $input.item.json.md5Checksum || '' }}",
               "type": "string"
             }
           ]
@@ -812,7 +824,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "-- 1. Remove Histórico de Chat Antigo (Removido o '*')\nDELETE FROM sameka_chat_message;\n\n-- 2. Remove Vetores Antigos\nDELETE FROM aspirapaq_documents \nWHERE sameka_metadata->>'session_id' IS NOT NULL;\n\n-- 3. Remove Arquivos/Metadados Antigos\nDELETE FROM sameka_document_metadata \nWHERE session_id IS NOT NULL;",
+        "query": "-- ✅ Limpeza segura de DADOS DE SESSÃO (não toca em docs globais nem migrations).\n-- Envolvido em DO/EXCEPTION para nunca quebrar o workflow se uma tabela legada não existir.\nDO $$\nBEGIN\n  -- 1. Remove chat APENAS de sessões cujos docs já expiraram (não apaga histórico ativo)\n  BEGIN\n    DELETE FROM sameka_chat_message\n    WHERE session_id IN (\n      SELECT session_id FROM sameka_document_metadata WHERE session_id IS NOT NULL\n    );\n  EXCEPTION WHEN undefined_table THEN\n    RAISE NOTICE 'sameka_chat_message ausente — pulando';\n  END;\n\n  -- 2. Remove vetores de sessão\n  BEGIN\n    DELETE FROM sameka_documents\n    WHERE metadata->>'session_id' IS NOT NULL\n      AND metadata->>'session_id' <> '';\n  EXCEPTION WHEN undefined_table THEN\n    RAISE NOTICE 'sameka_documents ausente — pulando';\n  END;\n\n  -- 3. Remove metadados/linhas de sessão (rows caem via CASCADE)\n  BEGIN\n    DELETE FROM sameka_document_metadata\n    WHERE session_id IS NOT NULL;\n  EXCEPTION WHEN undefined_table THEN\n    RAISE NOTICE 'sameka_document_metadata ausente — pulando';\n  END;\nEND $$;",
         "options": {}
       },
       "id": "db125a02-5b92-42cf-ae45-1646d9d18d42",
@@ -899,6 +911,45 @@
           },
           "conditions": [
             {
+              "id": "c3d4e5f6-a7b8-4c7d-9e0f-1a2b3c4d5e6f",
+              "leftValue": "={{ $json.modified_time || '' }}",
+              "rightValue": "={{ $('Set File ID - to Context').item.json.modified_time || '' }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "d4e5f6a7-b8c9-4d8e-9f0a-1b2c3d4e5f6a",
+              "leftValue": "={{ $json.modified_time || '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [3760, 336],
+      "id": "e1d2c3b4-a5f6-4e7d-8c9b-0a1f2e3d4c5b",
+      "name": "Skip If Unchanged"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
               "id": "bd3e7b3c-f167-4b8c-91c5-e599af4bbd84",
               "leftValue": "={{ $json.session_id }}",
               "rightValue": "null",
@@ -922,7 +973,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT session_id FROM sameka_document_metadata WHERE id = '{{ $('Set File ID - to Context').item.json.file_id }}'",
+        "query": "SELECT session_id, modified_time, content_hash FROM sameka_document_metadata WHERE id = '{{ $('Set File ID - to Context').item.json.file_id }}'",
         "options": {}
       },
       "id": "5cf6e57c-1b6a-4c6b-8f90-9b6aad739b3e",
@@ -1063,7 +1114,10 @@
             "id": "={{ $('Set File ID - to Context').item.json.file_id }}",
             "title": "={{ $('Set File ID - to Context').item.json.file_title }}",
             "url": "={{ $('Set File ID - to Context').item.json.file_url }}",
-            "session_id": "={{ $('Set File ID - to Context').item.json.session_id }}"
+            "session_id": "={{ $('Set File ID - to Context').item.json.session_id }}",
+            "modified_time": "={{ $('Set File ID - to Context').item.json.modified_time }}",
+            "content_hash": "={{ $('Set File ID - to Context').item.json.md5_checksum }}",
+            "last_indexed_at": "={{ $now.toISO() }}"
           },
           "matchingColumns": ["id"],
           "schema": [
@@ -1124,6 +1178,36 @@
               "type": "string",
               "canBeUsedToMatch": false,
               "removed": false
+            },
+            {
+              "id": "modified_time",
+              "displayName": "modified_time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "content_hash",
+              "displayName": "content_hash",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "last_indexed_at",
+              "displayName": "last_indexed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": false,
+              "removed": false
             }
           ],
           "attemptToConvertTypes": false,
@@ -1160,10 +1244,572 @@
           "name": "Azure Open AI account 3"
         }
       }
+    },
+    {
+      "parameters": {
+        "content": "## 🗂️ Admin RAG Docs API\nEndpoints usados pelo painel \"Documentos do RAG\" no front-end:\n- GET  /sameka-rag-docs        → lista docs globais (session_id IS NULL)\n- POST /sameka-rag-doc-delete  → apaga 1 doc por file_id (vetores + metadata + rows via CASCADE)",
+        "height": 220,
+        "width": 760,
+        "color": 5
+      },
+      "id": "f1a00000-0000-0000-0000-000000000001",
+      "name": "Sticky Note RAG Admin",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [560, 1440]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "sameka-rag-docs",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [624, 1648],
+      "id": "f1a00000-0000-0000-0000-000000000002",
+      "name": "Webhook RAG Docs List",
+      "webhookId": "f1a00000-0000-0000-0000-000000000002"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Self-heal: garante colunas mesmo se o setup nunca rodou\nALTER TABLE sameka_document_metadata ADD COLUMN IF NOT EXISTS modified_time TEXT;\nALTER TABLE sameka_document_metadata ADD COLUMN IF NOT EXISTS content_hash TEXT;\nALTER TABLE sameka_document_metadata ADD COLUMN IF NOT EXISTS last_indexed_at TIMESTAMP;\n\nSELECT id, title, url, created_at, last_indexed_at, modified_time, session_id\nFROM sameka_document_metadata\nWHERE session_id IS NULL OR session_id = ''\nORDER BY COALESCE(last_indexed_at, created_at) DESC NULLS LAST",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [864, 1648],
+      "id": "f1a00000-0000-0000-0000-000000000003",
+      "name": "List RAG Docs",
+      "credentials": {
+        "postgres": {
+          "id": "jFjeYH6Nt3aRNkoM",
+          "name": "Supabase_database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Agrupa todas as linhas em um array único para o webhook\nconst docs = $input.all().map(item => item.json);\nreturn [{ json: { docs } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1104, 1648],
+      "id": "f1a00000-0000-0000-0000-000000000004",
+      "name": "Aggregate RAG Docs"
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Content-Type", "value": "application/json" }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1344, 1648],
+      "id": "f1a00000-0000-0000-0000-000000000005",
+      "name": "Respond RAG Docs List"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sameka-rag-doc-delete",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [624, 1856],
+      "id": "f1a00000-0000-0000-0000-000000000006",
+      "name": "Webhook RAG Doc Delete",
+      "webhookId": "f1a00000-0000-0000-0000-000000000006"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f1a00000-0000-0000-0000-00000000c001",
+              "leftValue": "={{ $json.body && $json.body.file_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [864, 1856],
+      "id": "f1a00000-0000-0000-0000-000000000007",
+      "name": "Has file_id?"
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "DRIVE_DOC_MANAGER_ID",
+          "mode": "id",
+          "cachedResultName": "[Sameka] Sub-fluxo: Drive Document Manager"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "action": "delete",
+            "file_id": "={{ $('Webhook RAG Doc Delete').item.json.body.file_id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "action", "displayName": "action", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": false },
+            { "id": "file_id", "displayName": "file_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": false }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [1104, 1700],
+      "id": "f1a00000-0000-0000-0000-00000000000b",
+      "name": "Drive: Delete File (subflow)",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Apaga vetores do arquivo\nDELETE FROM sameka_documents\nWHERE metadata->>'file_id' = '{{ $('Webhook RAG Doc Delete').item.json.body.file_id }}';\n\n-- Apaga metadata (rows são removidas via ON DELETE CASCADE)\nDELETE FROM sameka_document_metadata\nWHERE id = '{{ $('Webhook RAG Doc Delete').item.json.body.file_id }}';",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1344, 1700],
+      "id": "f1a00000-0000-0000-0000-000000000008",
+      "name": "Delete RAG Doc",
+      "credentials": {
+        "postgres": {
+          "id": "jFjeYH6Nt3aRNkoM",
+          "name": "Supabase_database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"success\", \"file_id\": \"{{ $('Webhook RAG Doc Delete').item.json.body.file_id }}\" }",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Content-Type", "value": "application/json" }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1584, 1700],
+      "id": "f1a00000-0000-0000-0000-000000000009",
+      "name": "Respond RAG Doc Delete OK"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{ \"status\": \"error\", \"message\": \"file_id is required\" }",
+        "options": {
+          "responseCode": 400,
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Content-Type", "value": "application/json" }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1104, 1968],
+      "id": "f1a00000-0000-0000-0000-00000000000a",
+      "name": "Respond RAG Doc Delete Error"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sameka-rag-purge-all",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [624, 2096],
+      "id": "f1a00000-0000-0000-0000-00000000000b",
+      "name": "Webhook RAG Purge All",
+      "webhookId": "f1a00000-0000-0000-0000-00000000000b"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Coleta IDs e títulos para apagar no Drive depois\nSELECT id, title FROM sameka_document_metadata\nWHERE session_id IS NULL OR session_id = '';",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [864, 2096],
+      "id": "f1a00000-0000-0000-0000-00000000000c",
+      "name": "Get Global Doc IDs",
+      "credentials": {
+        "postgres": {
+          "id": "jFjeYH6Nt3aRNkoM",
+          "name": "Supabase_database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Apaga TODOS os vetores globais (sem session_id)\nDELETE FROM sameka_documents\nWHERE metadata->>'session_id' IS NULL\n   OR metadata->>'session_id' = '';\n\n-- Apaga TODOS os metadados globais (rows caem via CASCADE)\nDELETE FROM sameka_document_metadata\nWHERE session_id IS NULL\n   OR session_id = '';",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1104, 2096],
+      "id": "f1a00000-0000-0000-0000-00000000000d",
+      "name": "Purge All Global Docs",
+      "credentials": {
+        "postgres": {
+          "id": "jFjeYH6Nt3aRNkoM",
+          "name": "Supabase_database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f1a00000-0000-0000-0000-00000000c003",
+              "leftValue": "={{ ($('Webhook RAG Purge All').item.json.body && $('Webhook RAG Purge All').item.json.body.deleteFromDrive) === true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1344, 2096],
+      "id": "f1a00000-0000-0000-0000-00000000000e",
+      "name": "Also Delete From Drive?"
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "DRIVE_DOC_MANAGER_ID",
+          "mode": "id",
+          "cachedResultName": "[Sameka] Sub-fluxo: Drive Document Manager"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "action": "delete",
+            "file_id": "={{ $('Get Global Doc IDs').item.json.id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "action", "displayName": "action", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": false },
+            { "id": "file_id", "displayName": "file_id", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": false }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [1584, 1968],
+      "id": "f1a00000-0000-0000-0000-00000000000f",
+      "name": "Drive: Bulk Delete (subflow)",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"success\", \"deleted_count\": {{ $('Get Global Doc IDs').all().length }} }",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Content-Type", "value": "application/json" }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1824, 2096],
+      "id": "f1a00000-0000-0000-0000-000000000010",
+      "name": "Respond RAG Purge OK"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sameka-rag-reprocess-all",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [624, 2304],
+      "id": "f1a00000-0000-0000-0000-000000000011",
+      "name": "Webhook RAG Reprocess All",
+      "webhookId": "f1a00000-0000-0000-0000-000000000011"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Self-heal: garante colunas mesmo se o setup nunca rodou\nALTER TABLE sameka_document_metadata ADD COLUMN IF NOT EXISTS modified_time TEXT;\nALTER TABLE sameka_document_metadata ADD COLUMN IF NOT EXISTS content_hash TEXT;\nALTER TABLE sameka_document_metadata ADD COLUMN IF NOT EXISTS last_indexed_at TIMESTAMP;\n\n-- Apaga apenas os VETORES (não toca em metadados nem rows).\nDELETE FROM sameka_documents\nWHERE metadata->>'session_id' IS NULL\n   OR metadata->>'session_id' = '';\n\n-- Zera o controle de modificação para forçar reindex no próximo run.\nUPDATE sameka_document_metadata\nSET modified_time = NULL,\n    content_hash  = NULL,\n    last_indexed_at = NULL\nWHERE session_id IS NULL OR session_id = '';",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [864, 2304],
+      "id": "f1a00000-0000-0000-0000-000000000012",
+      "name": "Reset Reprocess Markers",
+      "credentials": {
+        "postgres": {
+          "id": "jFjeYH6Nt3aRNkoM",
+          "name": "Supabase_database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{ \"status\": \"success\", \"message\": \"Reprocess markers reset. On the next Drive scan, all docs will be reindexed.\" }",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Content-Type", "value": "application/json" }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1104, 2304],
+      "id": "f1a00000-0000-0000-0000-000000000013",
+      "name": "Respond Reprocess OK"
     }
   ],
   "pinData": {},
   "connections": {
+    "Webhook RAG Docs List": {
+      "main": [
+        [
+          {
+            "node": "List RAG Docs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List RAG Docs": {
+      "main": [
+        [
+          {
+            "node": "Aggregate RAG Docs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate RAG Docs": {
+      "main": [
+        [
+          {
+            "node": "Respond RAG Docs List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook RAG Doc Delete": {
+      "main": [
+        [
+          {
+            "node": "Has file_id?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has file_id?": {
+      "main": [
+        [
+          {
+            "node": "Drive: Delete File (subflow)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond RAG Doc Delete Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drive: Delete File (subflow)": {
+      "main": [
+        [
+          {
+            "node": "Delete RAG Doc",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete RAG Doc": {
+      "main": [
+        [
+          {
+            "node": "Respond RAG Doc Delete OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook RAG Purge All": {
+      "main": [
+        [
+          {
+            "node": "Get Global Doc IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Global Doc IDs": {
+      "main": [
+        [
+          {
+            "node": "Purge All Global Docs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Purge All Global Docs": {
+      "main": [
+        [
+          {
+            "node": "Also Delete From Drive?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Also Delete From Drive?": {
+      "main": [
+        [
+          {
+            "node": "Drive: Bulk Delete (subflow)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond RAG Purge OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drive: Bulk Delete (subflow)": {
+      "main": [
+        [
+          {
+            "node": "Respond RAG Purge OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook RAG Reprocess All": {
+      "main": [
+        [
+          {
+            "node": "Reset Reprocess Markers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reset Reprocess Markers": {
+      "main": [
+        [
+          {
+            "node": "Respond Reprocess OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Default Data Loader": {
       "ai_document": [
         [
@@ -1420,14 +2066,14 @@
       "main": [
         [
           {
-            "node": "Delete DRIVE Data Only1",
+            "node": "Ensure RAG Indexes",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Delete DRIVE Data Only1": {
+    "Ensure RAG Indexes": {
       "main": [
         [
           {
@@ -1564,6 +2210,18 @@
     },
     "Check Session Integrity": {
       "main": [
+        [
+          {
+            "node": "Skip If Unchanged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skip If Unchanged": {
+      "main": [
+        [],
         [
           {
             "node": "If",

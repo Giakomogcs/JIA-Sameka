@@ -2497,6 +2497,15 @@
               </button>
               <button
                 class="footer-btn"
+                id="manageRagDocsBtn"
+                title="Gerenciar Documentos do RAG"
+                data-admin-only
+              >
+                <i data-lucide="folder-open" style="width: 14px; height: 14px"></i>
+                <span>Documentos</span>
+              </button>
+              <button
+                class="footer-btn"
                 id="themeToggleBtn"
                 title="Alternar Tema"
               >
@@ -2811,6 +2820,212 @@
             </div>
           </div>
         </section>
+
+        <!-- RAG DOCS PAGE (admin only) -->
+        <section
+          id="ragDocsPage"
+          style="
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            background: var(--bg-chat);
+            grid-column: 2;
+            grid-row: 1;
+            position: relative;
+          "
+        >
+          <div class="users-page-header">
+            <div style="display: flex; align-items: center; gap: 12px">
+              <button
+                class="users-back-btn"
+                id="ragDocsBackBtn"
+                title="Voltar ao chat"
+              >
+                <i data-lucide="arrow-left" style="width: 18px; height: 18px"></i>
+              </button>
+              <h2
+                style="
+                  margin: 0;
+                  font-size: 1.3rem;
+                  font-weight: 700;
+                  color: var(--text-primary);
+                "
+              >
+                Documentos do RAG
+                <span
+                  id="ragDocsCount"
+                  style="
+                    font-size: 13px;
+                    color: var(--text-secondary);
+                    font-weight: 400;
+                  "
+                ></span>
+              </h2>
+            </div>
+            <div style="display: flex; gap: 8px">
+              <button
+                class="btn-modal btn-cancel"
+                id="ragDocsRefreshBtn"
+                title="Recarregar lista"
+                style="
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 6px;
+                  font-size: 13px;
+                  padding: 8px 12px;
+                "
+              >
+                <i data-lucide="refresh-cw" style="width: 14px; height: 14px"></i>
+              </button>
+              <button
+                class="btn-modal btn-cancel"
+                id="ragReprocessAllBtn"
+                title="Forçar reindexação de todos os documentos (mantém arquivos)"
+                style="
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 6px;
+                  font-size: 13px;
+                  padding: 8px 12px;
+                "
+              >
+                <i data-lucide="rotate-cw" style="width: 14px; height: 14px"></i>
+                Reprocessar tudo
+              </button>
+              <button
+                class="btn-modal btn-cancel"
+                id="ragPurgeAllBtn"
+                title="Apagar TODOS os documentos do RAG"
+                style="
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 6px;
+                  font-size: 13px;
+                  padding: 8px 12px;
+                  background: #dc2626;
+                  color: #fff;
+                "
+              >
+                <i data-lucide="trash" style="width: 14px; height: 14px"></i>
+                Apagar tudo
+              </button>
+              <button
+                class="btn-modal btn-confirm"
+                id="ragDocUploadBtn"
+                style="
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 6px;
+                  font-size: 13px;
+                  padding: 8px 16px;
+                "
+              >
+                <i data-lucide="upload" style="width: 14px; height: 14px"></i>
+                Adicionar Documento
+              </button>
+              <input type="file" id="ragDocFileInput" style="display: none" />
+            </div>
+          </div>
+
+          <!-- Overlay para operações longas (upload/delete/purge/reprocess) -->
+          <div
+            id="ragDocsBusyOverlay"
+            style="
+              display: none;
+              position: absolute;
+              inset: 0;
+              background: rgba(255, 255, 255, 0.85);
+              backdrop-filter: blur(2px);
+              z-index: 10;
+              align-items: center;
+              justify-content: center;
+              flex-direction: column;
+              gap: 12px;
+              padding: 24px;
+              text-align: center;
+            "
+          >
+            <div
+              style="
+                width: 48px;
+                height: 48px;
+                border: 4px solid var(--color-primary);
+                border-top-color: transparent;
+                border-radius: 50%;
+                animation: ragSpin 1s linear infinite;
+              "
+            ></div>
+            <div
+              id="ragDocsBusyMessage"
+              style="
+                font-size: 15px;
+                font-weight: 600;
+                color: var(--text-primary);
+                max-width: 480px;
+              "
+            >
+              Processando...
+            </div>
+            <div
+              style="
+                font-size: 12px;
+                color: var(--text-secondary);
+                max-width: 480px;
+              "
+            >
+              Não feche esta janela. A operação pode demorar alguns minutos.
+            </div>
+          </div>
+          <style>
+            @keyframes ragSpin {
+              to {
+                transform: rotate(360deg);
+              }
+            }
+          </style>
+
+          <div class="users-page-body">
+            <div
+              id="ragDocsLoading"
+              style="
+                display: none;
+                text-align: center;
+                padding: 40px;
+                color: var(--text-secondary);
+              "
+            >
+              <div style="font-size: 2rem; margin-bottom: 8px">⏳</div>
+              Carregando documentos...
+            </div>
+            <div
+              id="ragDocsEmpty"
+              style="
+                display: none;
+                text-align: center;
+                padding: 40px;
+                color: var(--text-secondary);
+              "
+            >
+              <div style="font-size: 2rem; margin-bottom: 8px">📁</div>
+              Nenhum documento na base de conhecimento.<br />
+              Clique em <strong>Adicionar Documento</strong> para começar.
+            </div>
+            <table
+              id="ragDocsTable"
+              style="width: 100%; border-collapse: collapse; display: none"
+            >
+              <thead>
+                <tr>
+                  <th class="users-th">Título</th>
+                  <th class="users-th">Origem</th>
+                  <th class="users-th">Última indexação</th>
+                  <th class="users-th" style="text-align: right">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="ragDocsTableBody"></tbody>
+            </table>
+          </div>
+        </section>
       </div>
     </div>
 
@@ -2910,6 +3125,10 @@
       const RESET_URL = `${API_BASE}/sameka-DatabaseSetup`;
       const PRUNE_URL = `${API_BASE}/sameka-prune-history`;
       const HEALTH_URL = `${API_BASE}/sameka_health`;
+      const RAG_DOCS_LIST_URL = `${API_BASE}/sameka-rag-docs`;
+      const RAG_DOCS_DELETE_URL = `${API_BASE}/sameka-rag-doc-delete`;
+      const RAG_PURGE_URL = `${API_BASE}/sameka-rag-purge-all`;
+      const RAG_REPROCESS_URL = `${API_BASE}/sameka-rag-reprocess-all`;
 
       let currentSessionId = null;
       let sessions = [];
@@ -3662,14 +3881,17 @@
       }
 
       function getSocialIcon(url) {
+        // Nota: o bundle UMD do lucide via CDN NÃO inclui ícones de marca
+        // (instagram/facebook/linkedin/twitter/youtube). Usamos ícones
+        // genéricos válidos para evitar "icon name was not found".
         if (!url) return "globe";
         const u = url.toLowerCase();
-        if (u.includes("instagram")) return "instagram";
-        if (u.includes("facebook") || u.includes("fb.com")) return "facebook";
-        if (u.includes("linkedin")) return "linkedin";
-        if (u.includes("twitter") || u.includes("x.com")) return "twitter";
+        if (u.includes("instagram")) return "camera";
+        if (u.includes("facebook") || u.includes("fb.com")) return "thumbs-up";
+        if (u.includes("linkedin")) return "briefcase";
+        if (u.includes("twitter") || u.includes("x.com")) return "at-sign";
         if (u.includes("tiktok")) return "video";
-        if (u.includes("youtube")) return "youtube";
+        if (u.includes("youtube")) return "play-circle";
         if (u.includes("wa.me") || u.includes("whatsapp"))
           return "message-circle";
         return "globe";
@@ -3837,7 +4059,13 @@
         // (segunda barreira além do prompt do agente)
         const filtered = leads.filter((lead) => {
           if (isMismatch(lead)) return false;
-          // Também descarta sem nenhum canal de contato
+          // Leads da planilha interna Sameka são pré-validados pela curadoria.
+          // Mesmo sem telefone/email/redes, eles devem ser exibidos
+          // (o representante visita fisicamente usando o endereço).
+          const fonte = String(lead.fonte || "").toLowerCase();
+          const isCurada = fonte.includes("planilha") || fonte.includes("rag") || fonte.includes("sameka");
+          if (isCurada) return true;
+          // Para leads da Oporttuna (API externa), exige ao menos 1 canal de contato
           const noPhones = !lead.telefones || lead.telefones.length === 0;
           const noEmails = !lead.emails || lead.emails.length === 0;
           const noSocial = !lead.redesSociais || lead.redesSociais.length === 0;
@@ -3869,9 +4097,9 @@
           }
           let fonteHtml = "";
           if (lead.fonte) {
-            const isPlanilha = /planilha/i.test(lead.fonte);
-            const fonteLabel = isPlanilha ? "📋 Planilha UF" : "🛰️ Oporttuna";
-            fonteHtml = `<span class="lead-fonte-badge${isPlanilha ? " fonte-planilha" : ""}">${fonteLabel}</span>`;
+            const isCurada = /planilha|rag|sameka/i.test(lead.fonte);
+            const fonteLabel = isCurada ? "⭐ Base Sameka" : "🛰️ Oporttuna";
+            fonteHtml = `<span class="lead-fonte-badge${isCurada ? " fonte-planilha" : ""}">${fonteLabel}</span>`;
           }
           html += `
           <div class="lead-card${mismatch ? " lead-mismatch" : ""}" data-carousel-idx="0">
@@ -4461,6 +4689,7 @@
       }
       async function loadSession(sessionId) {
         hideUsersPage();
+        if (typeof hideRagDocsPage === "function") hideRagDocsPage();
 
         if (currentSessionId !== sessionId) {
           sessions = sessions.filter((s) => !s._isTemp);
@@ -4485,6 +4714,7 @@
       }
       function startNewChat() {
         hideUsersPage();
+        if (typeof hideRagDocsPage === "function") hideRagDocsPage();
 
         // If a stream is running, abort it first
         if (isLoading) {
@@ -5306,6 +5536,7 @@
       }
 
       function showUsersPage() {
+        hideRagDocsPage();
         document.getElementById("chatArea").style.display = "none";
         const up = document.getElementById("usersPage");
         up.style.display = "flex";
@@ -5315,8 +5546,14 @@
       }
 
       function hideUsersPage() {
-        document.getElementById("usersPage").style.display = "none";
-        document.getElementById("chatArea").style.display = "";
+        const up = document.getElementById("usersPage");
+        if (up) up.style.display = "none";
+        const chatArea = document.getElementById("chatArea");
+        const ragPage = document.getElementById("ragDocsPage");
+        // só restaura o chat se nenhum outro painel admin estiver visível
+        if (chatArea && (!ragPage || ragPage.style.display === "none")) {
+          chatArea.style.display = "";
+        }
       }
 
       async function loadUsersPage() {
@@ -5523,6 +5760,341 @@
       const manageUsersBtn = document.getElementById("manageUsersBtn");
       if (manageUsersBtn) {
         manageUsersBtn.addEventListener("click", showUsersPage);
+      }
+
+      // ============================================================
+      // RAG DOCS MANAGEMENT (Admin only)
+      // ============================================================
+      function showRagDocsPage() {
+        hideUsersPage();
+        document.getElementById("chatArea").style.display = "none";
+        const page = document.getElementById("ragDocsPage");
+        if (!page) return;
+        page.style.display = "flex";
+        loadRagDocs();
+      }
+
+      function hideRagDocsPage() {
+        const page = document.getElementById("ragDocsPage");
+        if (page) page.style.display = "none";
+        document.getElementById("chatArea").style.display = "";
+      }
+
+      function formatRagDate(value) {
+        if (!value) return '<span style="opacity:0.4">—</span>';
+        try {
+          const d = new Date(value);
+          if (isNaN(d.getTime())) return escapeHtml(String(value));
+          return d.toLocaleString("pt-BR");
+        } catch (e) {
+          return escapeHtml(String(value));
+        }
+      }
+
+      function ragSourceBadge(doc) {
+        const hasUrl = doc.url && /drive\.google\.com/i.test(doc.url);
+        if (hasUrl) {
+          return '<span style="background:var(--color-wine);color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">Google Drive</span>';
+        }
+        return '<span style="background:var(--color-primary);color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">Upload Direto</span>';
+      }
+
+      async function loadRagDocs() {
+        const loading = document.getElementById("ragDocsLoading");
+        const table = document.getElementById("ragDocsTable");
+        const empty = document.getElementById("ragDocsEmpty");
+        const tbody = document.getElementById("ragDocsTableBody");
+        const countEl = document.getElementById("ragDocsCount");
+        if (loading) loading.style.display = "block";
+        if (table) table.style.display = "none";
+        if (empty) empty.style.display = "none";
+        try {
+          const resp = await fetch(RAG_DOCS_LIST_URL);
+          if (!resp.ok) throw new Error("Falha ao listar documentos");
+          const text = await resp.text();
+          let docs = [];
+          try {
+            let parsed = text && text.trim().length > 0 ? JSON.parse(text) : [];
+            // Defensivo: se vier double-encoded (string JSON dentro de string), refaz o parse.
+            for (let i = 0; i < 3 && typeof parsed === "string"; i++) {
+              try { parsed = JSON.parse(parsed); } catch (_) { break; }
+            }
+            console.log("[ragDocs] parsed response:", parsed);
+            // Webhook n8n pode devolver vários formatos:
+            //   [{ docs: [...] }]        (respondWith: allIncomingItems)
+            //   { docs: [...] }          (respondWith: json)
+            //   [ {id,title,...}, ... ]  (array direto)
+            //   [{ json: { docs:[...] }}] (raw items)
+            // Estratégia: procura recursivamente um array cujos itens tenham `id` ou `title`.
+            const looksLikeDoc = (o) =>
+              o && typeof o === "object" && !Array.isArray(o) &&
+              ("id" in o || "title" in o || "file_id" in o);
+            const findDocsArray = (v, depth = 0) => {
+              if (depth > 6 || v == null) return null;
+              if (Array.isArray(v)) {
+                // Array vazio também é válido (sem docs).
+                if (v.length === 0) return v;
+                if (v.every(looksLikeDoc)) return v;
+                // Caso contrário, mergulha em cada item.
+                for (const item of v) {
+                  const found = findDocsArray(item, depth + 1);
+                  if (found) return found;
+                }
+                return null;
+              }
+              if (typeof v === "object") {
+                // Chaves prioritárias
+                for (const key of ["docs", "data", "json", "body", "result", "items"]) {
+                  if (key in v) {
+                    const found = findDocsArray(v[key], depth + 1);
+                    if (found) return found;
+                  }
+                }
+                // Fallback: varre todas as chaves
+                for (const key of Object.keys(v)) {
+                  const found = findDocsArray(v[key], depth + 1);
+                  if (found) return found;
+                }
+              }
+              return null;
+            };
+            docs = findDocsArray(parsed) || [];
+            console.log("[ragDocs] extracted docs:", docs.length, docs);
+          } catch (e) {
+            console.error("[ragDocs] parse error", e);
+            docs = [];
+          }
+          // Filtra só docs globais (sem session_id) — anexos de chat não aparecem aqui.
+          docs = docs.filter(
+            (d) => !d.session_id || d.session_id === "" || d.session_id === null,
+          );
+          if (countEl) countEl.textContent = "(" + docs.length + ")";
+          tbody.innerHTML = "";
+          if (docs.length === 0) {
+            if (empty) empty.style.display = "block";
+            return;
+          }
+          docs.forEach((doc) => {
+            const tr = document.createElement("tr");
+            const title = doc.title || doc.id || "Sem título";
+            const lastIdx = doc.last_indexed_at || doc.created_at;
+            tr.innerHTML = `
+              <td class="users-th" style="font-weight:500">
+                ${
+                  doc.url
+                    ? `<a href="${escapeHtml(doc.url)}" target="_blank" rel="noopener" style="color:var(--text-primary);text-decoration:none">${escapeHtml(title)}</a>`
+                    : escapeHtml(title)
+                }
+              </td>
+              <td class="users-th">${ragSourceBadge(doc)}</td>
+              <td class="users-th">${formatRagDate(lastIdx)}</td>
+              <td class="users-th" style="text-align:right">
+                <button
+                  class="btn-modal btn-cancel"
+                  data-rag-doc-id="${escapeHtml(doc.id)}"
+                  data-rag-doc-title="${escapeHtml(title)}"
+                  style="background:#dc2626;color:#fff;border:none;padding:6px 12px;font-size:12px"
+                  title="Remover documento do RAG"
+                >
+                  <i data-lucide="trash-2" style="width:12px;height:12px"></i>
+                  Remover
+                </button>
+              </td>
+            `;
+            tbody.appendChild(tr);
+          });
+          if (table) table.style.display = "table";
+          lucide.createIcons();
+          tbody.querySelectorAll("button[data-rag-doc-id]").forEach((btn) => {
+            btn.addEventListener("click", () =>
+              confirmDeleteRagDoc(
+                btn.dataset.ragDocId,
+                btn.dataset.ragDocTitle,
+              ),
+            );
+          });
+        } catch (err) {
+          setStatus("Erro ao carregar documentos do RAG", "error");
+          if (empty) {
+            empty.style.display = "block";
+            empty.innerHTML =
+              '<div style="font-size:2rem;margin-bottom:8px">⚠️</div>Falha ao carregar documentos.<br>Verifique se o endpoint <code>/sameka-rag-docs</code> está ativo no n8n.';
+          }
+        } finally {
+          if (loading) loading.style.display = "none";
+        }
+      }
+
+      async function confirmDeleteRagDoc(fileId, title) {
+        if (!fileId) return;
+        const ok = window.confirm(
+          `Remover o documento "${title}" da base de conhecimento?\n\nIsso vai apagar:\n• O arquivo no Google Drive\n• Os vetores no Supabase\n• Os metadados e linhas (CSV/Excel)\n\nEsta ação é IRREVERSÍVEL.`,
+        );
+        if (!ok) return;
+        try {
+          showRagBusy(`Removendo "${title}"... apagando do Drive e do vetor.`);
+          setStatus(`Removendo "${title}"...`, "warning");
+          const resp = await fetch(RAG_DOCS_DELETE_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ file_id: fileId }),
+          });
+          if (!resp.ok) throw new Error("Delete failed");
+          setStatus(`Documento "${title}" removido.`, "success");
+          await loadRagDocs();
+        } catch (err) {
+          setStatus("Erro ao remover documento.", "error");
+        } finally {
+          hideRagBusy();
+        }
+      }
+
+      async function uploadRagDoc(file) {
+        if (!file) return;
+        try {
+          showRagBusy(
+            `Indexando "${file.name}"... isso pode levar alguns minutos.`,
+          );
+          setStatus(`Indexando ${file.name}... (pode demorar)`, "warning");
+          const formData = new FormData();
+          formData.append("file", file);
+          // SEM session_id → arquivo permanente do RAG
+          const resp = await fetch(UPLOAD_URL, {
+            method: "POST",
+            body: formData,
+          });
+          if (!resp.ok) throw new Error("Upload failed");
+          setStatus(`${file.name} adicionado ao RAG!`, "success");
+          await loadRagDocs();
+        } catch (err) {
+          setStatus(`Erro ao indexar ${file.name}.`, "error");
+        } finally {
+          hideRagBusy();
+        }
+      }
+
+      // ===== Overlay de "trabalhando..." para operações longas do RAG =====
+      function showRagBusy(message) {
+        const overlay = document.getElementById("ragDocsBusyOverlay");
+        const msg = document.getElementById("ragDocsBusyMessage");
+        if (msg && message) msg.textContent = message;
+        if (overlay) overlay.style.display = "flex";
+        // Desabilita botões enquanto processa
+        [
+          "ragDocUploadBtn",
+          "ragDocsRefreshBtn",
+          "ragPurgeAllBtn",
+          "ragReprocessAllBtn",
+        ].forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.disabled = true;
+        });
+      }
+      function hideRagBusy() {
+        const overlay = document.getElementById("ragDocsBusyOverlay");
+        if (overlay) overlay.style.display = "none";
+        [
+          "ragDocUploadBtn",
+          "ragDocsRefreshBtn",
+          "ragPurgeAllBtn",
+          "ragReprocessAllBtn",
+        ].forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.disabled = false;
+        });
+      }
+
+      const manageRagDocsBtn = document.getElementById("manageRagDocsBtn");
+      if (manageRagDocsBtn) {
+        manageRagDocsBtn.addEventListener("click", showRagDocsPage);
+      }
+      const ragDocsBackBtn = document.getElementById("ragDocsBackBtn");
+      if (ragDocsBackBtn) {
+        ragDocsBackBtn.addEventListener("click", hideRagDocsPage);
+      }
+      const ragDocsRefreshBtn = document.getElementById("ragDocsRefreshBtn");
+      if (ragDocsRefreshBtn) {
+        ragDocsRefreshBtn.addEventListener("click", loadRagDocs);
+      }
+      const ragDocUploadBtn = document.getElementById("ragDocUploadBtn");
+      const ragDocFileInput = document.getElementById("ragDocFileInput");
+      if (ragDocUploadBtn && ragDocFileInput) {
+        ragDocUploadBtn.addEventListener("click", () =>
+          ragDocFileInput.click(),
+        );
+        ragDocFileInput.addEventListener("change", async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          await uploadRagDoc(file);
+          ragDocFileInput.value = ""; // reset
+        });
+      }
+
+      async function purgeAllRagDocs() {
+        const ok = window.confirm(
+          "⚠️ ATENÇÃO\n\nIsso vai APAGAR TODOS os documentos permanentes do RAG (vetores + metadados).\n\nOs arquivos no Google Drive serão MANTIDOS por padrão.\n\nConfirma?",
+        );
+        if (!ok) return;
+        const alsoDrive = window.confirm(
+          "Apagar TAMBÉM os arquivos no Google Drive?\n\n• OK → apaga vetores + arquivos no Drive\n• Cancelar → apaga só os vetores (Drive permanece)",
+        );
+        try {
+          showRagBusy(
+            alsoDrive
+              ? "Apagando TUDO (Drive + vetores)... pode demorar."
+              : "Apagando vetores e metadados...",
+          );
+          setStatus("Apagando base de conhecimento...", "warning");
+          const resp = await fetch(RAG_PURGE_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ deleteFromDrive: !!alsoDrive }),
+          });
+          if (!resp.ok) throw new Error("purge failed");
+          const text = await resp.text();
+          let payload = {};
+          try {
+            payload = text ? JSON.parse(text) : {};
+          } catch (e) {}
+          const count = payload.deleted_count ?? "?";
+          setStatus(`Base limpa. ${count} documento(s) removido(s).`, "success");
+          await loadRagDocs();
+        } catch (err) {
+          setStatus("Erro ao apagar a base.", "error");
+        } finally {
+          hideRagBusy();
+        }
+      }
+
+      async function reprocessAllRagDocs() {
+        const ok = window.confirm(
+          "Forçar reindexação de TODOS os documentos do RAG?\n\n• Os arquivos no Drive são mantidos.\n• Os vetores serão apagados e recriados no próximo scan automático do Drive (ou ao rodar o workflow manualmente).\n\nIsso é útil se você mudou o modelo de embeddings ou a forma de chunking.",
+        );
+        if (!ok) return;
+        try {
+          showRagBusy("Marcando documentos para reprocessamento...");
+          setStatus("Marcando documentos para reprocessamento...", "warning");
+          const resp = await fetch(RAG_REPROCESS_URL, { method: "POST" });
+          if (!resp.ok) throw new Error("reprocess failed");
+          setStatus(
+            "Reprocessamento agendado. Rode o workflow do Drive para reindexar.",
+            "success",
+          );
+          await loadRagDocs();
+        } catch (err) {
+          setStatus("Erro ao agendar reprocessamento.", "error");
+        } finally {
+          hideRagBusy();
+        }
+      }
+
+      const ragPurgeAllBtn = document.getElementById("ragPurgeAllBtn");
+      if (ragPurgeAllBtn) {
+        ragPurgeAllBtn.addEventListener("click", purgeAllRagDocs);
+      }
+      const ragReprocessAllBtn = document.getElementById("ragReprocessAllBtn");
+      if (ragReprocessAllBtn) {
+        ragReprocessAllBtn.addEventListener("click", reprocessAllRagDocs);
       }
 
       const userForm2 = document.getElementById("userForm2");

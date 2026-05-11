@@ -1,0 +1,120 @@
+{
+  "name": "Sameka-DB-Schema-Setup",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 🏗️ Schema Setup — Usuários, Chat & Auth\n\nEste workflow é **idempotente** e cria/atualiza apenas as tabelas de usuários, sessões e mensagens de chat.\n\n- Não toca em `sameka_documents`, `sameka_document_metadata` ou `sameka_document_rows` (esses ficam no workflow `Sameka-RAG`).\n- Pode ser executado várias vezes sem perder dados.\n- Equivale, em conjunto, às migrations 001-007 da pasta `migrations/`.\n\n**Quando rodar:**\n1. Setup inicial do banco.\n2. Após restaurar backup do Supabase.\n3. Quando adicionar uma nova coluna ao schema de chat/usuários.",
+        "height": 380,
+        "width": 700,
+        "color": 4
+      },
+      "id": "a1000001-0000-0000-0000-000000000001",
+      "name": "Sticky Note Header",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [80, 432],
+      "id": "a1000001-0000-0000-0000-000000000002",
+      "name": "When clicking 'Execute workflow'"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- 1. Tabela de Memória do Chat\nCREATE TABLE IF NOT EXISTS sameka_chat_message (\n    id SERIAL PRIMARY KEY,\n    session_id TEXT NOT NULL,\n    user_id UUID,\n    message JSONB NOT NULL,\n    created_at TIMESTAMP DEFAULT NOW()\n);\nCREATE INDEX IF NOT EXISTS idx_chat_message_user_id ON sameka_chat_message (user_id);\nCREATE INDEX IF NOT EXISTS idx_chat_message_session ON sameka_chat_message (session_id);\n\n-- 2. Garante colunas adicionadas em migrations posteriores (idempotente)\nALTER TABLE sameka_chat_message ADD COLUMN IF NOT EXISTS user_id UUID;",
+        "options": {}
+      },
+      "id": "a1000001-0000-0000-0000-000000000003",
+      "name": "Create Chat Message Table",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [320, 432],
+      "credentials": {
+        "postgres": {
+          "id": "jFjeYH6Nt3aRNkoM",
+          "name": "Supabase_database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Trigger que popula user_id em sameka_chat_message a partir do JWT da sessão.\n-- A FUNÇÃO precisa existir (criada uma vez via SQL Editor do Supabase como owner — migration 007).\n-- Aqui apenas re-anexamos o trigger de forma idempotente.\nDO $$\nBEGIN\n  IF EXISTS (\n    SELECT 1 FROM pg_proc WHERE proname = 'trg_set_chat_user_id'\n  ) THEN\n    EXECUTE 'DROP TRIGGER IF EXISTS trg_chat_set_user_id ON sameka_chat_message';\n    EXECUTE 'CREATE TRIGGER trg_chat_set_user_id BEFORE INSERT ON sameka_chat_message FOR EACH ROW EXECUTE FUNCTION trg_set_chat_user_id()';\n  END IF;\nEND $$;",
+        "options": {}
+      },
+      "id": "a1000001-0000-0000-0000-000000000004",
+      "name": "Attach Chat Trigger",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [560, 432],
+      "credentials": {
+        "postgres": {
+          "id": "jFjeYH6Nt3aRNkoM",
+          "name": "Supabase_database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Reaplica colunas adicionadas em migrations 002-006 de forma idempotente.\n-- (Roles, company_name, coverage_areas, prevent self delete)\n\nALTER TABLE IF EXISTS sameka_user ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'viewer';\nALTER TABLE IF EXISTS sameka_user ADD COLUMN IF NOT EXISTS company_name TEXT;\nALTER TABLE IF EXISTS sameka_user ADD COLUMN IF NOT EXISTS coverage_areas JSONB DEFAULT '[]'::jsonb;\n\nCREATE INDEX IF NOT EXISTS idx_sameka_user_role ON sameka_user (role);",
+        "options": {}
+      },
+      "id": "a1000001-0000-0000-0000-000000000005",
+      "name": "Ensure User Columns",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [800, 432],
+      "continueOnFail": true,
+      "credentials": {
+        "postgres": {
+          "id": "jFjeYH6Nt3aRNkoM",
+          "name": "Supabase_database"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [
+        [
+          {
+            "node": "Create Chat Message Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Chat Message Table": {
+      "main": [
+        [
+          {
+            "node": "Attach Chat Trigger",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach Chat Trigger": {
+      "main": [
+        [
+          {
+            "node": "Ensure User Columns",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
