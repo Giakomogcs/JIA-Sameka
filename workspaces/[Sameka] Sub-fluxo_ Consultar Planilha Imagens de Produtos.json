@@ -7,10 +7,7 @@
       "name": "Execute Workflow Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1,
-      "position": [
-        -16,
-        464
-      ]
+      "position": [-16, 464]
     },
     {
       "parameters": {
@@ -23,10 +20,7 @@
       "name": "Sticky Note1",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [
-        0,
-        0
-      ]
+      "position": [0, 0]
     },
     {
       "parameters": {
@@ -67,10 +61,7 @@
       "name": "Tem nome da aba?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        208,
-        464
-      ]
+      "position": [208, 464]
     },
     {
       "parameters": {
@@ -90,10 +81,7 @@
       "name": "Google Sheets",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4,
-      "position": [
-        464,
-        320
-      ],
+      "position": [464, 320],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "Y2LZELFEeUCjAV5U",
@@ -121,10 +109,7 @@
       "name": "Listar Abas API",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [
-        464,
-        608
-      ],
+      "position": [464, 608],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "Y2LZELFEeUCjAV5U",
@@ -140,10 +125,7 @@
       "name": "Formatar Lista de Abas",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        688,
-        608
-      ]
+      "position": [688, 608]
     },
     {
       "parameters": {
@@ -153,10 +135,7 @@
       "name": "Filtrar Resultados para a IA1",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        688,
-        320
-      ]
+      "position": [688, 320]
     }
   ],
   "pinData": {},

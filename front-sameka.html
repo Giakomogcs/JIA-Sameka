@@ -2355,13 +2355,21 @@
         border-color: rgba(154, 106, 74, 0.25);
       }
       .lead-fonte-badge.fonte-carteira {
-        background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(217, 119, 6, 0.18));
+        background: linear-gradient(
+          135deg,
+          rgba(245, 158, 11, 0.18),
+          rgba(217, 119, 6, 0.18)
+        );
         color: #b45309;
         border-color: rgba(217, 119, 6, 0.35);
       }
       [data-theme="dark"] .lead-fonte-badge.fonte-carteira {
         color: #fbbf24;
-        background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.25));
+        background: linear-gradient(
+          135deg,
+          rgba(245, 158, 11, 0.25),
+          rgba(217, 119, 6, 0.25)
+        );
       }
       .lead-cnpj {
         font-family: "Consolas", "Monaco", monospace;
@@ -4118,7 +4126,10 @@
           .toLowerCase()
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "")
-          .replace(/\b(ltda|me|epp|eireli|sa|s\.a\.?|com[eé]rcio|comercio)\b/g, "")
+          .replace(
+            /\b(ltda|me|epp|eireli|sa|s\.a\.?|com[eé]rcio|comercio)\b/g,
+            "",
+          )
           .replace(/[^a-z0-9]+/g, " ")
           .trim();
         return "nome:" + nome;
@@ -4126,7 +4137,8 @@
       function _leadFontePriority(lead) {
         const f = String(lead.fonte || "").toLowerCase();
         if (f.includes("carteira")) return 3;
-        if (f.includes("sameka") || f.includes("planilha") || f.includes("rag")) return 2;
+        if (f.includes("sameka") || f.includes("planilha") || f.includes("rag"))
+          return 2;
         return 1;
       }
 
@@ -4366,8 +4378,7 @@
       // para refletir os cards efetivamente exibidos.
       function syncLeadCount(container, count) {
         if (!container || count == null) return;
-        const re =
-          /(\d+)(\s+(?:novas?\s+)?empresas?\s+encontradas?)/i;
+        const re = /(\d+)(\s+(?:novas?\s+)?empresas?\s+encontradas?)/i;
         const walker = document.createTreeWalker(
           container,
           NodeFilter.SHOW_TEXT,
@@ -4377,10 +4388,7 @@
         while (walker.nextNode()) nodes.push(walker.currentNode);
         nodes.forEach((node) => {
           if (re.test(node.nodeValue)) {
-            node.nodeValue = node.nodeValue.replace(
-              re,
-              String(count) + "$2",
-            );
+            node.nodeValue = node.nodeValue.replace(re, String(count) + "$2");
           }
         });
       }
