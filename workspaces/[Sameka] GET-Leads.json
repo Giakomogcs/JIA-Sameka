@@ -18,7 +18,7 @@
         "url": "https://oporttuna.com.br/portal-api-hmg/auth/login",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "{\n  \"email\": \"suporte.orion@senai.com.br\",\n  \"senha\": \"123456\"\n}",
+        "jsonBody": "{\n  \"email\": \"suporte.orion@sameka.com.br\",\n  \"senha\": \"123456\"\n}",
         "options": {}
       },
       "id": "72beb692-f9d2-4039-a680-d2e9f9743e06",
@@ -85,7 +85,7 @@
             },
             {
               "name": "x-empresa-id",
-              "value": "senai"
+              "value": "sameka"
             }
           ]
         },

@@ -1,0 +1,124 @@
+{
+  "name": "[Sameka] GET-Clientes-Carteira-RAG",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "11111111-1111-4111-8111-111111111111",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [-240, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normaliza inputs do agente — mesmo contrato do [Sameka] GET-Clientes.\nconst dadosIa = $input.item.json || {};\n\nlet cidade = (dadosIa.cidade || '').toString().trim();\nlet uf     = (dadosIa.uf     || '').toString().trim().toUpperCase();\nlet limite = parseInt(dadosIa.limite, 10);\nif (!Number.isFinite(limite) || limite <= 0) limite = 50;\nif (limite > 200) limite = 200;\n\n// Se a IA mandar tudo num campo \"query\" (ex: \"Birigui, SP\")\nif (dadosIa.query && !cidade) {\n  const partes = dadosIa.query.toString().split(/,|\\s-\\s|-/);\n  cidade = (partes[0] || '').trim();\n  uf     = ((partes[1] || '').trim()).toUpperCase();\n}\n\n// Defaults defensivos\nif (!cidade) cidade = 'Birigui';\nif (!uf)     uf     = 'SP';\n\nreturn { json: { cidade, uf, limite } };"
+      },
+      "id": "22222222-2222-4222-8222-222222222222",
+      "name": "Normalizar Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-48, 0]
+    },
+    {
+      "parameters": {
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1VWcPn90fCfU7F-4MK7EoQUD1m8A9GRZGkRrXnMy8YC8?fields=sheets.properties.title",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Accept", "value": "application/json" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "33333333-3333-4333-8333-333333333333",
+      "name": "Listar Abas API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [160, 0],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Y2LZELFEeUCjAV5U",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Une o nome da PRIMEIRA aba ao input normalizado (cidade/uf/limite)\nconst inputNorm = $('Normalizar Input').first().json;\nconst meta      = $input.first().json || {};\nconst sheets    = Array.isArray(meta.sheets) ? meta.sheets : [];\n\nconst sheetName = sheets[0] && sheets[0].properties && sheets[0].properties.title;\nif (!sheetName) {\n  return { json: { ...inputNorm, sheetName: null, _erro: 'Planilha sem abas vis\u00edveis' } };\n}\n\nreturn { json: { ...inputNorm, sheetName } };"
+      },
+      "id": "44444444-4444-4444-8444-444444444444",
+      "name": "Pegar Primeira Aba",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [368, 0]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1VWcPn90fCfU7F-4MK7EoQUD1m8A9GRZGkRrXnMy8YC8",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $json.sheetName }}",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "55555555-5555-4555-8555-555555555555",
+      "name": "Ler Planilha Clientes",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [576, 0],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Y2LZELFEeUCjAV5U",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filtra a planilha clientesSameka por cidade+UF e devolve envelope IGUAL ao GET-Clientes.\nconst params = $('Normalizar Input').first().json;\nconst cidadeIn = (params.cidade || '').toString();\nconst ufIn     = (params.uf     || '').toString().toUpperCase();\nconst limite   = parseInt(params.limite, 10) || 50;\n\n// Util: normalize string (lower, trim, sem acento, sem pontua\u00e7\u00e3o redundante)\nfunction norm(s) {\n  if (s === undefined || s === null) return '';\n  return s.toString()\n    .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')\n    .toLowerCase()\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\n// Variantes aceitas para cada campo l\u00f3gico\nconst MAP = {\n  cidade:        ['nome_municipio','municipio','cidade','city'],\n  uf:            ['sigla_uf','uf','estado','state'],\n  cnpj:          ['cpf_cnpj','cnpj','cnpj_completo','documento'],\n  razao:         ['razao_social','razaosocial','razao','empresa','nome'],\n  fantasia:      ['nome_fantasia','fantasia','nomefantasia'],\n  endereco:      ['endereco','endereco_completo','logradouro','rua'],\n  bairro:        ['bairro'],\n  cep:           ['cep'],\n  telefone:      ['telefone','telefones','fone','celular'],\n  email:         ['e_mail','email','e-mail','emails'],\n  rede1:         ['rede social 1','rede_social_1','redesocial1','instagram'],\n  rede2:         ['rede social 2','rede_social_2','redesocial2','facebook'],\n  imagem:        ['imagem 1','imagem_1','imagem','foto'],\n  cnae:          ['cnae','atividade','atividade_economica'],\n  porte:         ['porte'],\n  faturamento:   ['faturamento','faixa_faturamento'],\n  notaIcp:       ['nota icp','nota_icp','notaicp','icp'],\n  classifIcp:    ['classificacao icp','classificacao_icp','classificacaoicp']\n};\n\nfunction pick(row, logicalKey) {\n  const candidates = MAP[logicalKey] || [];\n  const rowKeys = Object.keys(row);\n  const lookup = {};\n  for (const k of rowKeys) lookup[norm(k)] = k;\n  for (const cand of candidates) {\n    const k = lookup[norm(cand)];\n    if (k !== undefined && row[k] !== undefined && row[k] !== null && row[k] !== '') {\n      return row[k];\n    }\n  }\n  return null;\n}\n\nconst todasLinhas = $input.all().map(i => i.json);\nconst cidadeNorm = norm(cidadeIn);\n\nconst clientes = [];\nfor (const row of todasLinhas) {\n  const rowCidade = pick(row, 'cidade');\n  const rowUf     = pick(row, 'uf');\n  if (!rowCidade) continue;\n\n  if (norm(rowCidade) !== cidadeNorm) continue;\n  if (rowUf && rowUf.toString().toUpperCase().trim() !== ufIn) continue;\n\n  // Telefones / emails / redes podem vir como string \u00fanica\n  const tel = pick(row, 'telefone');\n  const eml = pick(row, 'email');\n  const rs1 = pick(row, 'rede1');\n  const rs2 = pick(row, 'rede2');\n  const img = pick(row, 'imagem');\n\n  clientes.push({\n    cnpj:          pick(row, 'cnpj'),\n    empresa:       pick(row, 'razao'),\n    nomeFantasia:  pick(row, 'fantasia'),\n    endereco:      pick(row, 'endereco'),\n    bairro:        pick(row, 'bairro'),\n    cidade:        rowCidade,\n    uf:            rowUf || ufIn,\n    cep:           pick(row, 'cep'),\n    telefones:     tel ? [tel.toString()] : [],\n    emails:        eml ? [eml.toString()] : [],\n    redesSociais:  [rs1, rs2].filter(Boolean).map(String),\n    fotos:         img ? [img.toString()] : [],\n    possuiPresencaDigital: (rs1 || rs2) ? 'SIM' : 'NAO',\n    natureza:      pick(row, 'porte'),\n    cnae:          pick(row, 'cnae'),\n    faturamento:   pick(row, 'faturamento'),\n    score: {\n      nota:          pick(row, 'notaIcp'),\n      classificacao: pick(row, 'classifIcp'),\n      descricao:     null\n    },\n    empresaCliente: 'SIM',\n    empresaProspect: 'NAO',\n    fonte: 'carteira_sameka'\n  });\n}\n\n// Limite\nconst clientesLimitados = clientes.slice(0, limite);\n\nreturn {\n  json: {\n    ok: clientesLimitados.length > 0,\n    fonte: 'carteira_sameka',\n    origem: 'rag_planilha_drive',\n    cidade_consultada: cidadeIn,\n    uf_consultada: ufIn,\n    total: clientesLimitados.length,\n    total_bruto_planilha: todasLinhas.length,\n    clientes: clientesLimitados,\n    error: clientesLimitados.length === 0\n      ? `Nenhum cliente Sameka encontrado em ${cidadeIn}/${ufIn} na planilha clientesSameka (verifiquei ${todasLinhas.length} linhas).`\n      : null\n  }\n};"
+      },
+      "id": "66666666-6666-4666-8666-666666666666",
+      "name": "Filtrar Clientes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [784, 0]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [[{ "node": "Normalizar Input", "type": "main", "index": 0 }]]
+    },
+    "Normalizar Input": {
+      "main": [[{ "node": "Listar Abas API", "type": "main", "index": 0 }]]
+    },
+    "Listar Abas API": {
+      "main": [[{ "node": "Pegar Primeira Aba", "type": "main", "index": 0 }]]
+    },
+    "Pegar Primeira Aba": {
+      "main": [[{ "node": "Ler Planilha Clientes", "type": "main", "index": 0 }]]
+    },
+    "Ler Planilha Clientes": {
+      "main": [[{ "node": "Filtrar Clientes", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "00000000-0000-0000-0000-000000000010",
+  "meta": {
+    "instanceId": "03d32a206f2d8840fce482e6c587726f18775bd9177e9401c00ca76d3086ad41"
+  },
+  "id": "__FILL_ME__WORKFLOW_ID_GET_CLIENTES_CARTEIRA_RAG__",
+  "tags": []
+}

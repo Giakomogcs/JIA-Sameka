@@ -897,7 +897,44 @@ lucide.createIcons();
         "hotel",
         "pousada",
         "motel",
+        "games",
+        "game ",
+        "jogos",
+        "eletrônico",
+        "eletronico",
+        "informática",
+        "informatica",
+        "celular",
+        "telecom",
+        "telecomunicaç",
+        "telecomunicac",
+        "internet",
+        "provedor",
+        "fibra óptica",
+        "fibra optica",
+        "banda larga",
+        "livraria",
+        "livros",
+        "editora",
+        "papelaria",
+        "utilidades",
+        "1001",
+        "bazar",
+        ".digital",
+        "agência digital",
+        "agencia digital",
+        "marketing",
+        "software",
+        "gráfica",
+        "grafica",
         "fora do perfil",
+        "fora do foco",
+        "não é varejo infantil",
+        "nao e varejo infantil",
+        "sem aderência",
+        "sem aderencia",
+        "perfil não compatível",
+        "perfil nao compativel",
       ];
       const VAREJO_INFANTIL_KEYWORDS = [
         "infantil",
@@ -925,8 +962,11 @@ lucide.createIcons();
         "acessorio",
       ];
       function isMismatch(lead) {
+        // Texto-base: nome + natureza + avaliação do agente + dica.
         const text = (
           (lead.empresa || "") +
+          " " +
+          (lead.nomeFantasia || "") +
           " " +
           (lead.natureza || "") +
           " " +
@@ -934,31 +974,66 @@ lucide.createIcons();
           " " +
           (lead.dicaAbordagem || "")
         ).toLowerCase();
+        // 1) Palavra-chave NEGATIVA explícita → sempre mismatch.
         if (MISMATCH_KEYWORDS.some((kw) => text.includes(kw))) return true;
-        // Sem nenhuma palavra-chave de varejo infantil/moda/calçado também é mismatch
-        const hasVarejoSignal = VAREJO_INFANTIL_KEYWORDS.some((kw) =>
-          text.includes(kw),
+        // 2) Para leads de prospecção externa (Oporttuna), EXIGE pelo menos
+        //    uma palavra positiva de varejo infantil/moda/calçado. Sem sinal
+        //    positivo = fora do perfil (ex: "3 D GAMES", nomes genéricos).
+        //    Fontes curadas (carteira/RAG/planilha) são tratadas como válidas
+        //    no chamador, então aqui só vale para oporttuna.
+        const nameText = (
+          (lead.empresa || "") +
+          " " +
+          (lead.nomeFantasia || "")
+        ).toLowerCase();
+        const temPerfilVarejo = VAREJO_INFANTIL_KEYWORDS.some((kw) =>
+          nameText.includes(kw),
         );
-        return !hasVarejoSignal;
+        if (!temPerfilVarejo) return true;
+        return false;
+      }
+
+      function _leadDedupKey(lead) {
+        const cnpj = String(lead.cnpj || "").replace(/\D+/g, "");
+        if (cnpj && cnpj.length >= 8) return "cnpj:" + cnpj;
+        const nome = String(lead.empresa || "")
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/\b(ltda|me|epp|eireli|sa|s\.a\.?|com[eé]rcio|comercio)\b/g, "")
+          .replace(/[^a-z0-9]+/g, " ")
+          .trim();
+        return "nome:" + nome;
+      }
+      function _leadFontePriority(lead) {
+        const f = String(lead.fonte || "").toLowerCase();
+        if (f.includes("carteira")) return 3;
+        if (f.includes("sameka") || f.includes("planilha") || f.includes("rag")) return 2;
+        return 1;
       }
 
       function renderLeadCards(leads) {
         if (!leads || !leads.length) return "";
-        // FILTRO HARD: descarta leads sem perfil de varejo infantil/moda
-        // (segunda barreira além do prompt do agente)
-        const filtered = leads.filter((lead) => {
-          if (isMismatch(lead)) return false;
-          // Leads da planilha interna Sameka são pré-validados pela curadoria.
-          // Mesmo sem telefone/email/redes, eles devem ser exibidos
-          // (o representante visita fisicamente usando o endereço).
+        // DEDUP CROSS-FONTE (rede de segurança)
+        const dedupMap = new Map();
+        leads.forEach((lead) => {
+          const key = _leadDedupKey(lead);
+          const prev = dedupMap.get(key);
+          if (!prev || _leadFontePriority(lead) > _leadFontePriority(prev)) {
+            dedupMap.set(key, lead);
+          }
+        });
+        const deduped = Array.from(dedupMap.values());
+        // FILTRO: só descarta mismatch explícito (keyword negativa)
+        const filtered = deduped.filter((lead) => {
           const fonte = String(lead.fonte || "").toLowerCase();
-          const isCurada = fonte.includes("planilha") || fonte.includes("rag") || fonte.includes("sameka");
+          const isCurada =
+            fonte.includes("carteira") ||
+            fonte.includes("planilha") ||
+            fonte.includes("rag") ||
+            fonte.includes("sameka");
           if (isCurada) return true;
-          // Para leads da Oporttuna (API externa), exige ao menos 1 canal de contato
-          const noPhones = !lead.telefones || lead.telefones.length === 0;
-          const noEmails = !lead.emails || lead.emails.length === 0;
-          const noSocial = !lead.redesSociais || lead.redesSociais.length === 0;
-          if (noPhones && noEmails && noSocial) return false;
+          if (isMismatch(lead)) return false;
           return true;
         });
         if (!filtered.length) return "";
@@ -986,9 +1061,23 @@ lucide.createIcons();
           }
           let fonteHtml = "";
           if (lead.fonte) {
-            const isCurada = /planilha|rag|sameka/i.test(lead.fonte);
-            const fonteLabel = isCurada ? "⭐ Base Sameka" : "🛰️ Oporttuna";
-            fonteHtml = `<span class="lead-fonte-badge${isCurada ? " fonte-planilha" : ""}">${fonteLabel}</span>`;
+            const fonteLower = String(lead.fonte).toLowerCase();
+            const isCarteira = fonteLower.includes("carteira");
+            const isCurada =
+              !isCarteira &&
+              (fonteLower.includes("planilha") ||
+                fonteLower.includes("rag") ||
+                fonteLower.includes("sameka"));
+            let fonteLabel = "🛰️ Oporttuna";
+            let fonteClass = "";
+            if (isCarteira) {
+              fonteLabel = "🤝 Cliente Sameka";
+              fonteClass = " fonte-carteira";
+            } else if (isCurada) {
+              fonteLabel = "⭐ Base Sameka";
+              fonteClass = " fonte-planilha";
+            }
+            fonteHtml = `<span class="lead-fonte-badge${fonteClass}">${fonteLabel}</span>`;
           }
           html += `
           <div class="lead-card${mismatch ? " lead-mismatch" : ""}" data-carousel-idx="0">
@@ -1143,8 +1232,38 @@ lucide.createIcons();
               wrapper.innerHTML = renderLeadCards(json);
               pre.replaceWith(wrapper);
               lucide.createIcons();
+              // Sincroniza a contagem do título ("X empresas encontradas")
+              // com o número de cards REALMENTE renderizados após
+              // dedup + filtro de perfil — evita "5 encontradas / 4 exibidas".
+              const renderedCount =
+                wrapper.querySelectorAll(".lead-card").length;
+              syncLeadCount(container, renderedCount);
             }
           } catch (e) {}
+        });
+      }
+
+      // Reescreve o número em frases como "5 empresas encontradas",
+      // "5 empresas encontradas na sua área de atuação", "5 novas empresas"
+      // para refletir os cards efetivamente exibidos.
+      function syncLeadCount(container, count) {
+        if (!container || count == null) return;
+        const re =
+          /(\d+)(\s+(?:novas?\s+)?empresas?\s+encontradas?)/i;
+        const walker = document.createTreeWalker(
+          container,
+          NodeFilter.SHOW_TEXT,
+          null,
+        );
+        const nodes = [];
+        while (walker.nextNode()) nodes.push(walker.currentNode);
+        nodes.forEach((node) => {
+          if (re.test(node.nodeValue)) {
+            node.nodeValue = node.nodeValue.replace(
+              re,
+              String(count) + "$2",
+            );
+          }
         });
       }
 
@@ -2706,7 +2825,11 @@ lucide.createIcons();
             let parsed = text && text.trim().length > 0 ? JSON.parse(text) : [];
             // Defensivo: se vier double-encoded (string JSON dentro de string), refaz o parse.
             for (let i = 0; i < 3 && typeof parsed === "string"; i++) {
-              try { parsed = JSON.parse(parsed); } catch (_) { break; }
+              try {
+                parsed = JSON.parse(parsed);
+              } catch (_) {
+                break;
+              }
             }
             console.log("[ragDocs] parsed response:", parsed);
             // Webhook n8n pode devolver vários formatos:
@@ -2716,7 +2839,9 @@ lucide.createIcons();
             //   [{ json: { docs:[...] }}] (raw items)
             // Estratégia: procura recursivamente um array cujos itens tenham `id` ou `title`.
             const looksLikeDoc = (o) =>
-              o && typeof o === "object" && !Array.isArray(o) &&
+              o &&
+              typeof o === "object" &&
+              !Array.isArray(o) &&
               ("id" in o || "title" in o || "file_id" in o);
             const findDocsArray = (v, depth = 0) => {
               if (depth > 6 || v == null) return null;
@@ -2733,7 +2858,14 @@ lucide.createIcons();
               }
               if (typeof v === "object") {
                 // Chaves prioritárias
-                for (const key of ["docs", "data", "json", "body", "result", "items"]) {
+                for (const key of [
+                  "docs",
+                  "data",
+                  "json",
+                  "body",
+                  "result",
+                  "items",
+                ]) {
                   if (key in v) {
                     const found = findDocsArray(v[key], depth + 1);
                     if (found) return found;
@@ -2755,7 +2887,8 @@ lucide.createIcons();
           }
           // Filtra só docs globais (sem session_id) — anexos de chat não aparecem aqui.
           docs = docs.filter(
-            (d) => !d.session_id || d.session_id === "" || d.session_id === null,
+            (d) =>
+              !d.session_id || d.session_id === "" || d.session_id === null,
           );
           if (countEl) countEl.textContent = "(" + docs.length + ")";
           tbody.innerHTML = "";
@@ -2869,26 +3002,22 @@ lucide.createIcons();
         if (msg && message) msg.textContent = message;
         if (overlay) overlay.style.display = "flex";
         // Desabilita botões enquanto processa
-        [
-          "ragDocUploadBtn",
-          "ragDocsRefreshBtn",
-          "ragPurgeAllBtn",
-        ].forEach((id) => {
-          const el = document.getElementById(id);
-          if (el) el.disabled = true;
-        });
+        ["ragDocUploadBtn", "ragDocsRefreshBtn", "ragPurgeAllBtn"].forEach(
+          (id) => {
+            const el = document.getElementById(id);
+            if (el) el.disabled = true;
+          },
+        );
       }
       function hideRagBusy() {
         const overlay = document.getElementById("ragDocsBusyOverlay");
         if (overlay) overlay.style.display = "none";
-        [
-          "ragDocUploadBtn",
-          "ragDocsRefreshBtn",
-          "ragPurgeAllBtn",
-        ].forEach((id) => {
-          const el = document.getElementById(id);
-          if (el) el.disabled = false;
-        });
+        ["ragDocUploadBtn", "ragDocsRefreshBtn", "ragPurgeAllBtn"].forEach(
+          (id) => {
+            const el = document.getElementById(id);
+            if (el) el.disabled = false;
+          },
+        );
       }
 
       const manageRagDocsBtn = document.getElementById("manageRagDocsBtn");
@@ -2944,7 +3073,10 @@ lucide.createIcons();
             payload = text ? JSON.parse(text) : {};
           } catch (e) {}
           const count = payload.deleted_count ?? "?";
-          setStatus(`Base limpa. ${count} documento(s) removido(s).`, "success");
+          setStatus(
+            `Base limpa. ${count} documento(s) removido(s).`,
+            "success",
+          );
           await loadRagDocs();
         } catch (err) {
           setStatus("Erro ao apagar a base.", "error");

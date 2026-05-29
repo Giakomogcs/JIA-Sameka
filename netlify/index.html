@@ -2138,6 +2138,15 @@
         color: var(--color-wine);
         border-color: rgba(154, 106, 74, 0.25);
       }
+      .lead-fonte-badge.fonte-carteira {
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(217, 119, 6, 0.18));
+        color: #b45309;
+        border-color: rgba(217, 119, 6, 0.35);
+      }
+      [data-theme="dark"] .lead-fonte-badge.fonte-carteira {
+        color: #fbbf24;
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.25));
+      }
       .lead-cnpj {
         font-family: "Consolas", "Monaco", monospace;
         font-size: 0.85rem;
@@ -2281,7 +2290,10 @@
                 title="Gerenciar Documentos do RAG"
                 data-admin-only
               >
-                <i data-lucide="folder-open" style="width: 14px; height: 14px"></i>
+                <i
+                  data-lucide="folder-open"
+                  style="width: 14px; height: 14px"
+                ></i>
                 <span>Documentos</span>
               </button>
               <button
@@ -2630,7 +2642,10 @@
                 id="ragDocsBackBtn"
                 title="Voltar ao chat"
               >
-                <i data-lucide="arrow-left" style="width: 18px; height: 18px"></i>
+                <i
+                  data-lucide="arrow-left"
+                  style="width: 18px; height: 18px"
+                ></i>
               </button>
               <h2
                 style="
@@ -2664,7 +2679,10 @@
                   padding: 8px 12px;
                 "
               >
-                <i data-lucide="refresh-cw" style="width: 14px; height: 14px"></i>
+                <i
+                  data-lucide="refresh-cw"
+                  style="width: 14px; height: 14px"
+                ></i>
               </button>
               <button
                 class="btn-modal btn-cancel"

@@ -1,0 +1,911 @@
+openapi: 3.0.3
+info:
+  title: API Oporttuna - Inteligência de Negócios
+  version: 1.2.1
+  description: >
+    Endpoints de autenticação e inteligência de negócios para consulta de leads por cidade.
+
+    Filtros avançados: schema `#/components/schemas/FiltrosExportarEmpresa` (query param `filtro` em JSON).
+
+    **Leads por cidade (Observatório)** — `GET /inteligencia-negocio/leads-por-cidade`  
+    Retorna empresas da base da Receita Federal (`observatorio_dw`: `f_empresa`, estabelecimentos e dimensões),
+    filtradas por município/UF do Observatório Econômico.
+
+    **Leads por cidade (base da empresa)** — `GET /inteligencia-negocio/{empresaId}/leads-por-cidade`  
+    Retorna clientes do data warehouse da empresa (`op_{empresaId}_dw`: `d_cliente`, `d_cidade`, etc.),
+    filtrados pela cidade cadastrada no ERP/base do cliente. O parâmetro `empresaId` deve ser o mesmo ID
+    informado no header `x-empresa-id`. Ambos os endpoints mantêm o mesmo contrato de resposta (`LeadPorCidade`)
+    e aplicam enriquecimento digital e análise ICP via `oporttuna_consultas` quando disponíveis.
+
+servers:
+  - url: https://oporttuna.com.br/portal-api
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Autenticação
+      summary: Login
+      description: Autentica o usuário e retorna um token JWT.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - senha
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: usuario@empresa.com
+                senha:
+                  type: string
+                  example: sua_senha_secreta
+      responses:
+        '200':
+          description: Login bem-sucedido
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  codigo:
+                    type: integer
+                    example: 200
+                  retorno:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                      refreshToken:
+                        type: string
+                      expiresIn:
+                        type: string
+                required:
+                  - codigo
+                  - retorno
+              examples:
+                sucesso:
+                  value:
+                    codigo: 200
+                    retorno:
+                      token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                      refreshToken: "AEu4IL08w3D..._refresh_token"
+                      expiresIn: "3600"
+        '400':
+          description: Erro de validação no login
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroValidacao'
+        '500':
+          description: Erro interno ao realizar login
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroInterno'
+
+  /inteligencia-negocio/leads-por-cidade:
+    get:
+      tags:
+        - Inteligência de Negócios
+      summary: Listar leads por cidade (Observatório / Receita Federal)
+      description: >
+        Retorna leads (empresas ativas na Receita Federal) para uma cidade e UF informadas.
+
+        **Fonte de dados:** `observatorio_dw` (`f_empresa`, `d_municipio`, dimensões da RF).
+
+        **Enriquecimento:** `oporttuna_consultas.f_dados_enriquecidos` e `f_analise_icp` (quando `x-perfil-icp-id` informado).
+
+        Campos como `naturezaJuridica`, `porte`, `dataAbertura` e `atividadeEconomica` vêm preenchidos
+        pela base do Observatório. `empresaCliente` / `empresaProspect` indicam vínculo com o DW da empresa
+        (`op_{empresaId}_dw`) quando o dataset existir.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/HeaderEmpresaId'
+        - $ref: '#/components/parameters/HeaderPerfilIcpId'
+        - $ref: '#/components/parameters/QueryCidade'
+        - $ref: '#/components/parameters/QueryUf'
+        - $ref: '#/components/parameters/QueryLimite'
+        - $ref: '#/components/parameters/QueryFiltroAvancado'
+      responses:
+        '200':
+          description: Consulta de leads realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespostaLeadsPorCidade'
+              examples:
+                exemplo:
+                  value:
+                    codigo: 200
+                    filtro:
+                      cidade: "Birigui"
+                      uf: "SP"
+                      limite: 20
+                    idConsulta: "oy1ShqthokYO9FXJVj2q"
+                    retorno:
+                      - tipoCNPJ: "MATRIZ"
+                        cnpjCompleto: "05102903000105"
+                        razaoSocial: "ASSOCIACAO DOS PROPRIETARIOS DA '' VILLA DO CHAFARIZ ''"
+                        nomeFantasia: "''VILLA DO CHAFARIZ''"
+                        situacaoCadastral: "ATIVA"
+                        naturezaJuridica: "Associação Privada"
+                        mei: "NÃO"
+                        simples: "NÃO"
+                        porte: "DEMAIS"
+                        regimeTributario: "SIMPLES NACIONAL"
+                        cidade: "Birigui"
+                        uf: "São Paulo"
+                        bairro: "JARDIM PEROLA"
+                        enderecoNumero: "200"
+                        telefone: "NÃO INFORMADO"
+                        email: "NÃO INFORMADO"
+                        dataAbertura: "2002-06-12"
+                        atividadeEconomica: "Atividades associativas não especificadas anteriormente"
+                        enderecoCompleto: "RUA PADRE GERALDO GOSELING, 200  - JARDIM PEROLA, Birigui - SP, 16200-253"
+                        endereco: "PADRE GERALDO GOSELING"
+                        cep: "16200253"
+                        empresaCliente: "NAO"
+                        empresaProspect: "NAO"
+                        indicadorAtividade:
+                          faixaFaturamento: "EMPRESA ISENTA"
+                          numeroFuncionarios: "010 A 019"
+                          queryId: "fce9a801-56f3-4f65-9f4d-7a216faf3708"
+                        fotos:
+                          - "https://storage.googleapis.com/portal-observatorio.firebasestorage.app/imagens-google-places%2F07c9d7c7558430d0ee3fba6335a3ac7c.jpg"
+                        sites: []
+                        emails: []
+                        telefones:
+                          - "+55 18 3634-1333"
+                        redesSociais:
+                          - "https://www.instagram.com/p/DHMRquMPJqs/"
+                        possuiPresencaDigital: "SIM"
+                        notaICP: null
+                        classificacaoICP: null
+                        descricaoClassificacaoICP: null
+                        atividadeEconomicaSk: "-2988429005605363935"
+                        municipioSk: "3342"
+                        tipoLogradouro: "RUA"
+        '400':
+          description: Erro de validação ou cidade não encontrada no Observatório
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroValidacao'
+              examples:
+                cidadeNaoEncontrada:
+                  value:
+                    codigo: 400
+                    mensagem: "Cidade não encontrada com os parâmetros informados!"
+                    i18n:
+                      chave: "mensagens.erros.erroCidadeNaoEncontrada"
+                    retorno:
+                      cidade: "Cidade Inexistente"
+                      uf: "SP"
+        '401':
+          description: Não autorizado (token inválido, ausente ou empresa não informada)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroNaoAutorizado'
+        '500':
+          description: Erro interno ao processar a consulta
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroInterno'
+
+  /inteligencia-negocio/{empresaId}/leads-por-cidade:
+    get:
+      tags:
+        - Inteligência de Negócios
+      summary: Listar leads por cidade (base de clientes da empresa)
+      description: >
+        Retorna clientes (CNPJ com 14 dígitos) cadastrados na base da empresa para uma cidade e UF,
+        usando o data warehouse `op_{empresaId}_dw` no BigQuery.
+
+        **Fonte de dados:** `d_cliente`, `d_cidade` (e opcionalmente `d_prospect`) do dataset da empresa.
+
+        **Validações:**
+        - `empresaId` na URL deve coincidir com `x-empresa-id` (hífens no ID são normalizados para `_`).
+        - O dataset `op_{empresaId}_dw` deve existir no projeto BigQuery.
+
+        **Enriquecimento:** igual ao endpoint do Observatório (`f_dados_enriquecidos`, `f_analise_icp`).
+
+        **Diferenças em relação ao endpoint do Observatório:**
+        - `empresaCliente` é sempre `"SIM"`.
+        - `situacaoCadastral` reflete o campo `SITUACAO` do cadastro de clientes (ex.: ATIVO, INATIVO).
+        - `naturezaJuridica`, `porte`, `dataAbertura`, `atividadeEconomica`, `atividadeEconomicaSk` e
+          `tipoLogradouro` podem vir `null` (não existem no DW da empresa).
+        - `municipioSk` corresponde a `CIDADE_SK` da base da empresa, não ao `MUNICIPIO_SK` da Receita Federal.
+        - `tipoCNPJ` é derivado de `CNPJ_MATRIZ` / `CPF_CNPJ` (MATRIZ, FILIAL ou CPF).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: empresaId
+          in: path
+          required: true
+          description: >
+            Identificador da empresa (mesmo valor do header `x-empresa-id`).
+            A API monta o dataset `op_{empresaId}_dw` (substituindo `-` por `_` no ID).
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9_-]+$'
+          example: grugui
+        - $ref: '#/components/parameters/HeaderEmpresaId'
+        - $ref: '#/components/parameters/HeaderPerfilIcpId'
+        - $ref: '#/components/parameters/QueryCidade'
+        - $ref: '#/components/parameters/QueryUf'
+        - $ref: '#/components/parameters/QueryLimite'
+        - $ref: '#/components/parameters/QueryFiltroAvancado'
+      responses:
+        '200':
+          description: Consulta de clientes por cidade realizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespostaLeadsPorCidade'
+              examples:
+                exemplo:
+                  value:
+                    codigo: 200
+                    filtro:
+                      cidade: "São Paulo"
+                      uf: "SP"
+                      limite: 5
+                    idConsulta: "abc123xyz456"
+                    retorno:
+                      - tipoCNPJ: "MATRIZ"
+                        cnpjCompleto: "02010504000118"
+                        razaoSocial: "VERNON CALCADOS LTDA"
+                        nomeFantasia: "LOJA 11"
+                        situacaoCadastral: "INATIVO"
+                        naturezaJuridica: null
+                        mei: "NÃO"
+                        simples: "NÃO"
+                        porte: null
+                        regimeTributario: null
+                        cidade: "São Paulo"
+                        uf: "SP"
+                        bairro: "SE"
+                        enderecoNumero: null
+                        telefone: "11 3241 1366"
+                        email: "ferreira@mundialcalcados.com.br;nfe@mundialcalcados.com.br"
+                        dataAbertura: null
+                        atividadeEconomica: null
+                        enderecoCompleto: "R DIREITA,37 SE 01002001 São Paulo SP"
+                        endereco: "R DIREITA,37"
+                        cep: "01002001"
+                        empresaCliente: "SIM"
+                        empresaProspect: "NAO"
+                        indicadorAtividade: null
+                        fotos: []
+                        sites: []
+                        emails: []
+                        telefones: []
+                        redesSociais: []
+                        possuiPresencaDigital: "NAO"
+                        notaICP: null
+                        classificacaoICP: null
+                        descricaoClassificacaoICP: null
+                        atividadeEconomicaSk: null
+                        municipioSk: "9463"
+                        tipoLogradouro: null
+        '400':
+          description: >
+            Erro de validação, cidade não encontrada em `d_cidade`, ou dataset da empresa inexistente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroValidacao'
+              examples:
+                datasetNaoEncontrado:
+                  value:
+                    codigo: 400
+                    mensagem: "Dataset da empresa não encontrado!"
+                    i18n:
+                      chave: "mensagens.erros.erroDatasetNaoEncontrado"
+                    retorno:
+                      dataset: "op_grugui_dw"
+                parametrosInvalidos:
+                  value:
+                    codigo: 400
+                    mensagem: "Informe os parâmetros corretamente!"
+                    i18n:
+                      chave: "mensagens.erros.erroInformeParametrosCorretamente"
+                    retorno:
+                      empresaId: ["Informe um ID de empresa válido!"]
+        '401':
+          description: Não autorizado (token inválido, ausente ou empresa não informada)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroNaoAutorizado'
+        '403':
+          description: Empresa da URL diferente da empresa autenticada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroProibido'
+              examples:
+                empresaNaoAutorizada:
+                  value:
+                    codigo: 403
+                    mensagem: "Empresa não autorizada para esta consulta!"
+                    i18n:
+                      chave: "mensagens.erros.empresaNaoAutorizada"
+        '500':
+          description: Erro interno ao processar a consulta
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroInterno'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    HeaderEmpresaId:
+      name: x-empresa-id
+      in: header
+      required: true
+      description: Identificador da empresa do usuário autenticado. Deve ser igual ao `empresaId` da URL no endpoint da base empresa.
+      schema:
+        type: string
+      example: grugui
+    HeaderPerfilIcpId:
+      name: x-perfil-icp-id
+      in: header
+      required: false
+      description: ID do perfil ICP (Ideal Customer Profile) para ordenação e classificação via `f_analise_icp`.
+      schema:
+        type: string
+      example: 1234567890abcdef
+    QueryCidade:
+      name: cidade
+      in: query
+      required: true
+      description: Nome do município. No endpoint Observatório, usa `d_municipio.NOME_MUNICIPIO`; na base empresa, usa `d_cidade.NOME_MUNICIPIO`.
+      schema:
+        type: string
+      example: Birigui
+    QueryUf:
+      name: uf
+      in: query
+      required: true
+      description: Sigla da UF (2 caracteres).
+      schema:
+        type: string
+        minLength: 2
+        maxLength: 2
+      example: SP
+    QueryLimite:
+      name: limite
+      in: query
+      required: false
+      description: Quantidade máxima de registros (mín. 1, máx. 20; padrão 20 se omitido ou inválido).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 20
+        default: 20
+      example: 20
+    QueryFiltroAvancado:
+      name: filtro
+      in: query
+      required: false
+      description: >
+        JSON serializado do objeto `FiltrosExportarEmpresa`. Ver schema completo em
+        `#/components/schemas/FiltrosExportarEmpresa`. Deve ser URL-encoded na requisição.
+      schema:
+        type: string
+      examples:
+        consultaAvancada:
+          summary: Com enriquecimento digital
+          value: '{"possuiConsultaAvancada":"SIM","visibilidadeComercial":["SITES","TELEFONES"]}'
+        bairroEPorte:
+          summary: Bairro e porte (RF)
+          value: '{"bairro":[{"BAIRRO_SK":"123"}],"porte":[{"PORTE_SK":"-4189685434299980888"}]}'
+        regimeTributario:
+          summary: Regime tributário
+          value: '{"regimeTributario":[{"REGIME_TRIBUTARIO_SK":"640352223894215929","NOME_REGIME_TRIBUTARIO":"SIMPLES NACIONAL"}]}'
+
+  schemas:
+    FiltrosExportarEmpresa:
+      type: object
+      description: >
+        Conjunto de filtros opcionais para refinar a consulta de leads/empresas.
+        Nos endpoints `leads-por-cidade`, enviar como query param `filtro` (string JSON).
+        O campo `localidade` é definido automaticamente pela API a partir de `cidade` e `uf`;
+        não é necessário enviá-lo manualmente nesses endpoints.
+      properties:
+        localidade:
+          type: array
+          description: >
+            Lista de municípios/cidades por SK. Preenchido automaticamente em leads-por-cidade.
+            No Observatório usa `MUNICIPIO_SK`; na base empresa usa o mesmo campo com `CIDADE_SK`.
+          items:
+            $ref: '#/components/schemas/FiltroLocalidade'
+        bairro:
+          type: array
+          description: >
+            Filtro por bairro. Preferir `BAIRRO_SK` (Receita Federal). Se apenas `NOME_BAIRRO`,
+            na base empresa compara com o campo textual `d_cliente.BAIRRO`.
+          items:
+            $ref: '#/components/schemas/FiltroBairro'
+        ddd:
+          type: array
+          description: Filtra por DDD presente no telefone principal ou secundário.
+          items:
+            $ref: '#/components/schemas/FiltroDDD'
+        ramoAtividade:
+          type: array
+          description: Atividade econômica (CNAE) por `atividadeEconomicaSk`. Requer `f_empresa` na base empresa.
+          items:
+            $ref: '#/components/schemas/FiltroRamoAtividade'
+        naturezaJuridica:
+          type: array
+          description: Natureza jurídica por SK. Requer `f_empresa` na base empresa.
+          items:
+            $ref: '#/components/schemas/FiltroNaturezaJuridica'
+        porte:
+          type: array
+          description: Porte da empresa por `PORTE_SK`. Requer `f_empresa` na base empresa.
+          items:
+            $ref: '#/components/schemas/FiltroPorte'
+        regimeTributario:
+          type: array
+          description: >
+            Regime tributário por `REGIME_TRIBUTARIO_SK` (`d_regime_tributario`).
+            Requer JOIN com `f_empresa` na base empresa. Valores de referência obtidos em
+            `GET /consultar-empresas/regimesTributarios` (portal autenticado).
+          items:
+            $ref: '#/components/schemas/FiltroRegimeTributario'
+        periodo:
+          type: array
+          description: >
+            Período de abertura (ano e meses). Agrupa por `anoAbertura`; meses 1-12 ou lista específica.
+            Requer `f_empresa` e `d_data` na base empresa.
+          items:
+            $ref: '#/components/schemas/FiltroPeriodo'
+        opcaoMei:
+          type: array
+          description: Opção MEI por `opcaoMeiSk`. Requer `f_empresa` na base empresa.
+          items:
+            $ref: '#/components/schemas/FiltroOpcaoMei'
+        removerContatosContabeis:
+          type: boolean
+          description: >
+            Quando true, oculta telefone/e-mail que constam em `f_contagem_dados_empresas`
+            (contatos contábeis/compartilhados).
+          default: false
+        apenasNovosProspects:
+          $ref: '#/components/schemas/EApenasNovosProspects'
+        apenasProspectsIntegrados:
+          $ref: '#/components/schemas/EApenasProspectsIntegrados'
+        visibilidadeComercial:
+          type: array
+          description: >
+            Critérios de presença digital em `f_dados_enriquecidos`. Múltiplos valores são combinados com OR.
+          items:
+            $ref: '#/components/schemas/VisibilidadeComercialItem'
+        possuiConsultaAvancada:
+          $ref: '#/components/schemas/EPossuiConsultaAvancada'
+        ordenacao:
+          $ref: '#/components/schemas/EOrdenacaoEmpresa'
+        palavrasChaveQualificacao:
+          type: array
+          description: >
+            Palavras buscadas em `nomeFantasia` e `razaoSocial` (case insensitive).
+            Registros com match sobem na ordenação final. Se omitido e `x-perfil-icp-id` informado,
+            pode ser carregado do perfil ICP.
+          items:
+            type: string
+          example: ["moda", "calçados"]
+        palavrasChaveDesqualificacao:
+          type: array
+          description: Palavras que rebaixam o registro na ordenação final.
+          items:
+            type: string
+          example: ["contabilidade"]
+      additionalProperties: false
+
+    FiltroLocalidade:
+      type: object
+      properties:
+        MUNICIPIO_SK:
+          type: string
+          description: SK do município (Observatório) ou CIDADE_SK (base empresa).
+        NOME_MUNICIPIO:
+          type: string
+        NOME_UF:
+          type: string
+        SIGLA_UF:
+          type: string
+        UF_SK:
+          type: string
+
+    FiltroBairro:
+      type: object
+      properties:
+        BAIRRO_SK:
+          type: string
+          description: SK do bairro na Receita Federal (`d_bairro`).
+        NOME_BAIRRO:
+          type: string
+          description: Nome do bairro (fallback na base empresa).
+        MUNICIPIO_SK:
+          type: string
+        NOME_MUNICIPIO:
+          type: string
+
+    FiltroDDD:
+      type: object
+      properties:
+        id:
+          type: string
+        codigoUF:
+          type: integer
+        nomeUF:
+          type: string
+        siglaUF:
+          type: string
+        ddd:
+          type: integer
+          description: Código DDD (ex. 11, 18).
+      required:
+        - ddd
+
+    FiltroRamoAtividade:
+      type: object
+      properties:
+        atividadeEconomica:
+          type: string
+          description: Descrição da atividade.
+        atividadeEconomicaSk:
+          type: string
+          description: SK em `d_atividade_economica` / `f_empresa.atividade_economica_sk`.
+        codigoCnae:
+          type: string
+        tipoAtividadeEconomica:
+          type: string
+
+    FiltroNaturezaJuridica:
+      type: object
+      properties:
+        NATUREZA_JURIDICA_SK:
+          type: string
+        COD_NATUREZA_JURIDICA:
+          type: string
+        DESCRICAO:
+          type: string
+
+    FiltroPorte:
+      type: object
+      properties:
+        PORTE_SK:
+          type: string
+        NOME_PORTE:
+          type: string
+
+    FiltroRegimeTributario:
+      type: object
+      description: Item de filtro de regime tributário (dimensão `observatorio_dw.d_regime_tributario`).
+      properties:
+        REGIME_TRIBUTARIO_SK:
+          type: string
+          description: Surrogate key do regime em `f_empresa.regime_tributario_sk`.
+        NOME_REGIME_TRIBUTARIO:
+          type: string
+          description: Nome legível (ex. SIMPLES NACIONAL, LUCRO PRESUMIDO, LUCRO REAL).
+      example:
+        REGIME_TRIBUTARIO_SK: "640352223894215929"
+        NOME_REGIME_TRIBUTARIO: "SIMPLES NACIONAL"
+
+    FiltroPeriodo:
+      type: object
+      properties:
+        dataSk:
+          type: string
+        anoAbertura:
+          type: string
+          description: Ano de abertura (ex. "2022").
+        mes:
+          type: string
+          description: Número do mês (1-12).
+        mesDesc:
+          type: string
+
+    FiltroOpcaoMei:
+      type: object
+      properties:
+        opcaoMeiSk:
+          type: string
+        opcaoMei:
+          type: string
+          description: Texto da opção (ex. "SIM", "NÃO").
+
+    EApenasNovosProspects:
+      type: string
+      enum: [CLIENTES, NAO_CLIENTES]
+      description: >
+        CLIENTES — apenas CNPJs presentes em `d_cliente` (Observatório).
+        NAO_CLIENTES — exclui clientes (Observatório). Na base empresa, NAO_CLIENTES retorna lista vazia.
+
+    EApenasProspectsIntegrados:
+      type: string
+      enum: [PROSPECTS, NAO_PROSPECTS]
+      description: >
+        PROSPECTS — apenas registros em `d_prospect`.
+        NAO_PROSPECTS — exclui prospects (`d_prospect` IS NULL).
+
+    EPossuiConsultaAvancada:
+      type: string
+      enum: [SIM, NAO]
+      description: >
+        SIM — exige registro em `f_dados_enriquecidos`.
+        NAO — apenas sem enriquecimento.
+
+    EOrdenacaoEmpresa:
+      type: string
+      enum: [NOME_FANTASIA, RAZAO_SOCIAL]
+      description: Ordenação alfabética secundária (após nota ICP descendente).
+
+    VisibilidadeComercialItem:
+      type: string
+      enum: [SITES, EMAILS, TELEFONES, PRESENCA_DIGITAL, REDES_SOCIAIS, IMAGENS]
+      description: Tipo de dado digital presente em `f_dados_enriquecidos`.
+
+    RespostaLeadsPorCidade:
+      type: object
+      properties:
+        codigo:
+          type: integer
+          example: 200
+        filtro:
+          $ref: '#/components/schemas/FiltroLeadsPorCidade'
+        idConsulta:
+          type: string
+          description: ID do registro em `consultas-usuario` (Firestore).
+        retorno:
+          type: array
+          items:
+            $ref: '#/components/schemas/LeadPorCidade'
+      required:
+        - codigo
+        - filtro
+        - idConsulta
+        - retorno
+
+    FiltroLeadsPorCidade:
+      type: object
+      description: Parâmetros efetivos da consulta (eco dos query params após validação).
+      properties:
+        cidade:
+          type: string
+        uf:
+          type: string
+        limite:
+          type: integer
+          minimum: 1
+          maximum: 20
+        filtro:
+          $ref: '#/components/schemas/FiltrosExportarEmpresa'
+      required:
+        - cidade
+        - uf
+
+    LeadPorCidade:
+      type: object
+      description: >
+        Registro de lead/cliente. Mesmo schema nos dois endpoints; campos nullable podem vir vazios
+        no endpoint da base empresa (ver descrição de `/inteligencia-negocio/{empresaId}/leads-por-cidade`).
+      properties:
+        tipoCNPJ:
+          type: string
+          description: "MATRIZ, FILIAL ou CPF (base empresa); tipo da Receita (Observatório)."
+        cnpjCompleto:
+          type: string
+          description: CNPJ ou CPF (somente CNPJ 14 dígitos na base empresa).
+        razaoSocial:
+          type: string
+        nomeFantasia:
+          type: string
+        situacaoCadastral:
+          type: string
+          description: Situação cadastral RF (Observatório) ou `SITUACAO` do cliente (base empresa).
+        naturezaJuridica:
+          type: string
+          nullable: true
+        mei:
+          type: string
+        simples:
+          type: string
+        porte:
+          type: string
+          nullable: true
+        regimeTributario:
+          type: string
+          nullable: true
+          description: >
+            Regime tributário (`d_regime_tributario.regime_tributario`). Preenchido no endpoint Observatório;
+            na base empresa pode ser null se não houver match em `f_empresa` pelo CNPJ.
+        cidade:
+          type: string
+        uf:
+          type: string
+          description: Nome ou sigla da UF conforme fonte (Observatório retorna nome completo em alguns casos).
+        bairro:
+          type: string
+          nullable: true
+        enderecoNumero:
+          type: string
+          nullable: true
+        telefone:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        dataAbertura:
+          type: string
+          format: date
+          nullable: true
+        atividadeEconomica:
+          type: string
+          nullable: true
+        enderecoCompleto:
+          type: string
+        endereco:
+          type: string
+          nullable: true
+        cep:
+          type: string
+          nullable: true
+        empresaCliente:
+          type: string
+          enum: [SIM, NAO]
+          description: Na base empresa, sempre `SIM`.
+        empresaProspect:
+          type: string
+          enum: [SIM, NAO]
+        indicadorAtividade:
+          nullable: true
+          oneOf:
+            - type: object
+              properties:
+                faixaFaturamento:
+                  type: string
+                numeroFuncionarios:
+                  type: string
+                queryId:
+                  type: string
+                possuiEnderecoRecente:
+                  type: boolean
+            - type: 'null'
+        fotos:
+          type: array
+          items:
+            type: string
+        sites:
+          type: array
+          items:
+            type: string
+        emails:
+          type: array
+          items:
+            type: string
+        telefones:
+          type: array
+          items:
+            type: string
+        redesSociais:
+          type: array
+          items:
+            type: string
+        possuiPresencaDigital:
+          type: string
+          enum: [SIM, NAO]
+        notaICP:
+          nullable: true
+        classificacaoICP:
+          nullable: true
+        descricaoClassificacaoICP:
+          nullable: true
+        atividadeEconomicaSk:
+          type: string
+          nullable: true
+        municipioSk:
+          type: string
+          description: "MUNICIPIO_SK (Observatório) ou CIDADE_SK (base empresa)."
+        tipoLogradouro:
+          type: string
+          nullable: true
+
+    ErroValidacao:
+      type: object
+      properties:
+        codigo:
+          type: integer
+          example: 400
+        mensagem:
+          type: string
+        i18n:
+          type: object
+          properties:
+            chave:
+              type: string
+              description: >
+                Chaves possíveis: `mensagens.erros.erroInformeParametrosCorretamente`,
+                `mensagens.erros.erroCidadeNaoEncontrada`, `mensagens.erros.erroDatasetNaoEncontrado`.
+        retorno:
+          type: object
+          description: Detalhes do erro (campos inválidos, cidade/uf, nome do dataset, etc.).
+      required:
+        - codigo
+        - mensagem
+
+    ErroNaoAutorizado:
+      type: object
+      properties:
+        codigo:
+          type: integer
+          example: 401
+        mensagem:
+          type: string
+        i18n:
+          type: object
+          properties:
+            chave:
+              type: string
+              description: >
+                Ex.: `mensagens.erros.tokenNaoFornecido`, `mensagens.erros.empresaNaoInformada`,
+                `mensagens.erros.tokenInvalido`, `mensagens.erros.usuarioNaoAutorizadoParaEmpresa`.
+      required:
+        - codigo
+        - mensagem
+
+    ErroProibido:
+      type: object
+      properties:
+        codigo:
+          type: integer
+          example: 403
+        mensagem:
+          type: string
+        i18n:
+          type: object
+          properties:
+            chave:
+              type: string
+              example: mensagens.erros.empresaNaoAutorizada
+      required:
+        - codigo
+        - mensagem
+
+    ErroInterno:
+      type: object
+      properties:
+        codigo:
+          type: integer
+          example: 500
+        mensagem:
+          type: string
+        i18n:
+          type: object
+          properties:
+            chave:
+              type: string
+              example: mensagens.erros.erroListarClientesInativos
+      required:
+        - codigo
+        - mensagem

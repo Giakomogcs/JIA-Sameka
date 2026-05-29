@@ -1,0 +1,170 @@
+{
+  "name": "[Sameka] GET-Clientes",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        -112,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const dadosIa = $input.item.json;\n\nlet cidade = dadosIa.cidade || '';\nlet uf = dadosIa.uf || '';\nlet limite = dadosIa.limite || 20;\n\n// Se a IA mandou tudo num campo \"query\" (ex: \"Diadema, SP\" ou \"Diadema - SP\")\nif (dadosIa.query && !cidade) {\n    let partes = dadosIa.query.split(/,| - |-/); // Separa usando vírgula ou traço\n    cidade = partes[0] ? partes[0].trim() : '';\n    uf = partes[1] ? partes[1].trim() : '';\n}\n\n// Retorna limpo e com fallbacks de segurança\nreturn {\n    json: {\n        cidade: cidade || 'Birigui',\n        uf: uf || 'SP',\n        limite: limite\n    }\n};"
+      },
+      "id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+      "name": "Normalizar Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://oporttuna.com.br/portal-api/auth/login",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"email\": \"suporte.orion@sameka.com.br\",\n  \"senha\": \"123456\"\n}",
+        "options": {}
+      },
+      "id": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
+      "name": "Login API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        256,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://oporttuna.com.br/portal-api/inteligencia-negocio/sameka/leads-por-cidade",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "cidade",
+              "value": "={{ $('Normalizar Input').first().json.cidade }}"
+            },
+            {
+              "name": "uf",
+              "value": "={{ $('Normalizar Input').first().json.uf }}"
+            },
+            {
+              "name": "limite",
+              "value": "={{ $('Normalizar Input').first().json.limite }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.retorno.token }}"
+            },
+            {
+              "name": "x-empresa-id",
+              "value": "sameka"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80",
+      "name": "Consultar Clientes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        464,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Função para corrigir caracteres corrompidos (UTF-8 vs ISO-8859-1)\nfunction fixEncoding(text) {\n    if (typeof text !== 'string') return text;\n    try {\n        return decodeURIComponent(escape(text));\n    } catch (e) {\n        return text\n            .replace(/茫/g, 'ã')\n            .replace(/茅/g, 'é')\n            .replace(/铆/g, 'í')\n            .replace(/贸/g, 'ó')\n            .replace(/煤/g, 'ú')\n            .replace(/锚/g, 'ê')\n            .replace(/芒/g, 'â')\n            .replace(/SA煤de/g, 'Saúde');\n    }\n}\n\nconst payload = $input.item.json || {};\nconst codigo = payload.codigo;\nconst clientesBrutos = Array.isArray(payload.retorno) ? payload.retorno : [];\n\n// Se a API devolveu erro (cidade não encontrada, dataset inexistente, etc.)\n// devolva um envelope vazio porém válido, sinalizando para o agente cair na\n// próxima fonte (Oporttuna ou RAG/planilha).\nif (codigo && codigo >= 400) {\n    return {\n        json: {\n            ok: false,\n            fonte: 'carteira_sameka',\n            total: 0,\n            clientes: [],\n            error: payload.mensagem || 'Consulta na carteira Sameka falhou',\n            codigo: codigo\n        }\n    };\n}\n\nconst clientesFiltrados = clientesBrutos.map(c => ({\n    // Identificação\n    cnpj: c.cnpjCompleto,\n    tipoCNPJ: c.tipoCNPJ,\n    empresa: fixEncoding(c.razaoSocial),\n    nomeFantasia: fixEncoding(c.nomeFantasia),\n    situacaoCadastral: fixEncoding(c.situacaoCadastral),\n\n    // Localização para o Roteiro\n    endereco: fixEncoding(c.enderecoCompleto),\n    bairro: fixEncoding(c.bairro),\n    cidade: fixEncoding(c.cidade),\n    uf: c.uf,\n    cep: c.cep,\n    tipoLogradouro: c.tipoLogradouro,\n\n    // Contatos diretos\n    telefones: c.telefones || [],\n    emails: c.emails || [],\n\n    // Mídia\n    fotos: c.fotos || [],\n\n    // Presença Digital e Redes Sociais\n    redesSociais: c.redesSociais || [],\n    possuiPresencaDigital: c.possuiPresencaDigital,\n\n    // Inteligência de Vendas\n    natureza: fixEncoding(c.naturezaJuridica),\n    faturamento: c.indicadorAtividade?.faixaFaturamento,\n    score: {\n        nota: c.notaICP,\n        classificacao: c.classificacaoICP,\n        descricao: fixEncoding(c.descricaoClassificacaoICP)\n    },\n\n    // Marcador de origem — clientes da carteira Sameka\n    empresaCliente: c.empresaCliente || 'SIM',\n    empresaProspect: c.empresaProspect || 'NAO',\n    fonte: 'carteira_sameka'\n}));\n\nreturn {\n    json: {\n        ok: true,\n        fonte: 'carteira_sameka',\n        total: clientesFiltrados.length,\n        clientes: clientesFiltrados\n    }\n};"
+      },
+      "id": "e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8091",
+      "name": "Filtrar Dados",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalizar Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar Input": {
+      "main": [
+        [
+          {
+            "node": "Login API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Login API": {
+      "main": [
+        [
+          {
+            "node": "Consultar Clientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar Clientes": {
+      "main": [
+        [
+          {
+            "node": "Filtrar Dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "00000000-0000-0000-0000-000000000001",
+  "meta": {
+    "instanceId": "03d32a206f2d8840fce482e6c587726f18775bd9177e9401c00ca76d3086ad41"
+  },
+  "id": "__FILL_ME__WORKFLOW_ID_GET_CLIENTES__",
+  "tags": []
+}
