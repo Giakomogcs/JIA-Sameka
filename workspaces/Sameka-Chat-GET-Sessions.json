@@ -20,7 +20,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT \n  session_id, \n  MIN(created_at) as data_inicio,\n  (SELECT message->>'content'\n   FROM sameka_chat_message sameka_cm2 \n   WHERE sameka_cm2.session_id = sameka_cm.session_id \n   AND sameka_cm2.message->>'type' = 'human'\n   ORDER BY id DESC LIMIT 1) as titulo\nFROM sameka_chat_message sameka_cm\nWHERE user_id = '{{ $json.query.userId }}'::uuid\nGROUP BY session_id\nORDER BY data_inicio DESC;",
+        "query": "SELECT \n  session_id, \n  MIN(id) as data_inicio,\n  (SELECT message->>'content'\n   FROM sameka_chat_message sameka_cm2 \n   WHERE sameka_cm2.session_id = sameka_cm.session_id \n   AND sameka_cm2.message->>'type' = 'human'\n   ORDER BY id DESC LIMIT 1) as titulo\nFROM sameka_chat_message sameka_cm\nWHERE user_id = '{{ $json.query?.userId || $json.queryString?.userId }}'::uuid\nGROUP BY session_id\nORDER BY MIN(id) DESC;",
         "options": {}
       },
       "id": "da321a69-9f0d-40f9-96f5-7452a98d7cc5",

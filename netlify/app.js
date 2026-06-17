@@ -637,7 +637,18 @@ lucide.createIcons();
         );
       }
       function formatDate(dateString) {
+        if (
+          dateString === null ||
+          dateString === undefined ||
+          typeof dateString === "number" ||
+          /^\d+$/.test(String(dateString))
+        ) {
+          return "";
+        }
         const date = new Date(dateString);
+        if (isNaN(date.getTime())) {
+          return "";
+        }
         const now = new Date();
         const diffInHours = (now - date) / (1000 * 60 * 60);
         if (diffInHours < 24) {
@@ -927,6 +938,10 @@ lucide.createIcons();
         "software",
         "gráfica",
         "grafica",
+        "administradora",
+        "holding",
+        "participaç",
+        "participac",
         "fora do perfil",
         "fora do foco",
         "não é varejo infantil",
@@ -962,7 +977,7 @@ lucide.createIcons();
         "acessorio",
       ];
       function isMismatch(lead) {
-        // Texto-base: nome + natureza + avaliação do agente + dica.
+        // Texto-base: nome + natureza + avaliação do agente + dica + score.
         const text = (
           (lead.empresa || "") +
           " " +
@@ -972,7 +987,9 @@ lucide.createIcons();
           " " +
           (lead.matchSameka || "") +
           " " +
-          (lead.dicaAbordagem || "")
+          (lead.dicaAbordagem || "") +
+          " " +
+          ((lead.score && lead.score.descricao) || "")
         ).toLowerCase();
         // 1) Palavra-chave NEGATIVA explícita → sempre mismatch.
         if (MISMATCH_KEYWORDS.some((kw) => text.includes(kw))) return true;
@@ -986,8 +1003,22 @@ lucide.createIcons();
           " " +
           (lead.nomeFantasia || "")
         ).toLowerCase();
+        // Sinal positivo buscado em nome + CNAE + natureza + avaliação do
+        // agente — não só no nome, senão prospects válidos da API
+        // ("MAGAZINE ESTRELA") somem e só sobra a base interna.
+        const profileText = (
+          nameText +
+          " " +
+          (lead.atividadeEconomica || "") +
+          " " +
+          (lead.natureza || "") +
+          " " +
+          (lead.matchSameka || "") +
+          " " +
+          (lead.dicaAbordagem || "")
+        ).toLowerCase();
         const temPerfilVarejo = VAREJO_INFANTIL_KEYWORDS.some((kw) =>
-          nameText.includes(kw),
+          profileText.includes(kw),
         );
         if (!temPerfilVarejo) return true;
         return false;
@@ -1000,7 +1031,10 @@ lucide.createIcons();
           .toLowerCase()
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "")
-          .replace(/\b(ltda|me|epp|eireli|sa|s\.a\.?|com[eé]rcio|comercio)\b/g, "")
+          .replace(
+            /\b(ltda|me|epp|eireli|sa|s\.a\.?|com[eé]rcio|comercio)\b/g,
+            "",
+          )
           .replace(/[^a-z0-9]+/g, " ")
           .trim();
         return "nome:" + nome;
@@ -1008,12 +1042,97 @@ lucide.createIcons();
       function _leadFontePriority(lead) {
         const f = String(lead.fonte || "").toLowerCase();
         if (f.includes("carteira")) return 3;
-        if (f.includes("sameka") || f.includes("planilha") || f.includes("rag")) return 2;
+        // Oporttuna (API) vence planilha/RAG na duplicata: dado mais atual.
+        if (f.includes("oporttuna")) return 2;
+        if (f.includes("sameka") || f.includes("planilha") || f.includes("rag"))
+          return 1;
         return 1;
       }
+      // CNPJ baixado/inapto/suspenso não vira card — não existe loja para visitar.
+      function _isEncerrado(lead) {
+        const sit = String(lead.situacaoCadastral || "").toUpperCase();
+        if (/BAIXAD|INAPT|SUSPENS|NULA/.test(sit)) return true;
+        const text = (
+          (lead.matchSameka || "") +
+          " " +
+          (lead.dicaAbordagem || "") +
+          " " +
+          ((lead.score && lead.score.descricao) || "")
+        ).toLowerCase();
+        return /cadastro encerrad|cnpj baixad|situação baixada|situacao baixada|inapta|suspensa/.test(
+          text,
+        );
+      }
 
-      function renderLeadCards(leads) {
+      function _asLeadArray(v) {
+        if (Array.isArray(v)) return v.filter(Boolean);
+        if (v == null || v === "") return [];
+        return [v];
+      }
+      // Converte um lead de qualquer formato (legado em array ou novo schema
+      // do agente: nomeEmpresa/telefone/email/temPresencaDigital) para os
+      // campos esperados pelo renderizador de cards.
+      function _normalizeLead(l) {
+        if (!l || typeof l !== "object") return null;
+        const out = { ...l };
+        out.empresa =
+          l.empresa ||
+          l.nomeEmpresa ||
+          l.razaoSocial ||
+          l.nomeFantasia ||
+          l.nome ||
+          "Empresa";
+        let endereco = l.endereco || l.address || "";
+        const extra = [l.bairro, l.cidade, l.uf].filter(Boolean).join(", ");
+        if (extra && endereco && !endereco.includes(extra))
+          endereco = endereco + " — " + extra;
+        else if (extra && !endereco) endereco = extra;
+        out.endereco = endereco || undefined;
+        out.telefones = _asLeadArray(
+          l.telefones != null ? l.telefones : l.telefone,
+        );
+        out.emails = _asLeadArray(l.emails != null ? l.emails : l.email);
+        out.redesSociais = _asLeadArray(
+          l.redesSociais != null ? l.redesSociais : l.redes,
+        );
+        out.imagens = _asLeadArray(l.imagens != null ? l.imagens : l.images);
+        if (out.possuiPresencaDigital == null) {
+          const pd =
+            l.temPresencaDigital != null
+              ? l.temPresencaDigital
+              : l.possuiPresencaDigital;
+          if (typeof pd === "boolean")
+            out.possuiPresencaDigital = pd ? "SIM" : "NAO";
+          else if (typeof pd === "string")
+            out.possuiPresencaDigital = /^(sim|s|true|yes|1)$/i.test(pd.trim())
+              ? "SIM"
+              : "NAO";
+        }
+        out.matchSameka =
+          l.matchSameka || l.ramoAtividade || l.atividadeEconomica || "";
+        return out;
+      }
+      // Aceita um array direto OU um objeto { leads: [...] } (novo formato do
+      // agente: { tipo, cidade, totalLeads, leads: [...] }) e devolve sempre
+      // um array de leads normalizados.
+      function _normalizeLeads(payload) {
+        let arr = payload;
+        if (arr && !Array.isArray(arr) && typeof arr === "object") {
+          arr =
+            arr.leads ||
+            arr.empresas ||
+            arr.data ||
+            arr.results ||
+            arr.items ||
+            [];
+        }
+        if (!Array.isArray(arr)) return [];
+        return arr.map(_normalizeLead).filter(Boolean);
+      }
+
+      function renderLeadCards(leads, priorKeys) {
         if (!leads || !leads.length) return "";
+        priorKeys = priorKeys || new Set();
         // DEDUP CROSS-FONTE (rede de segurança)
         const dedupMap = new Map();
         leads.forEach((lead) => {
@@ -1023,22 +1142,93 @@ lucide.createIcons();
             dedupMap.set(key, lead);
           }
         });
-        const deduped = Array.from(dedupMap.values());
-        // FILTRO: só descarta mismatch explícito (keyword negativa)
-        const filtered = deduped.filter((lead) => {
-          const fonte = String(lead.fonte || "").toLowerCase();
-          const isCurada =
-            fonte.includes("carteira") ||
-            fonte.includes("planilha") ||
-            fonte.includes("rag") ||
-            fonte.includes("sameka");
-          if (isCurada) return true;
-          if (isMismatch(lead)) return false;
+        let deduped = Array.from(dedupMap.values());
+        // DEDUP CROSS-MENSAGEM: nunca repetir empresa já exibida na sessão
+        let repetidas = 0;
+        deduped = deduped.filter((lead) => {
+          if (priorKeys.has(_leadDedupKey(lead))) {
+            repetidas++;
+            return false;
+          }
           return true;
         });
-        if (!filtered.length) return "";
-        let html = '<div class="lead-cards-container">';
-        filtered.forEach((lead, idx) => {
+        // EXIBIÇÃO: mostra TODOS os leads que a fonte retornou (sem filtro
+        // de perfil/ramo — a Oporttuna já entrega o conjunto certo). Só remove
+        // CNPJ encerrado (baixado/inapto), que não tem loja para visitar.
+        const filtered = deduped.filter((lead) => !_isEncerrado(lead));
+        // ORDEM: tier A→B→C; dentro do tier, quem tem digital primeiro.
+        const tierRank = (l) => {
+          const c = String(
+            (l.score && l.score.classificacao) || "",
+          ).toUpperCase();
+          return c === "A" ? 0 : c === "B" ? 1 : c === "C" ? 2 : 1.5;
+        };
+        const hasDigital = (l) =>
+          (l.redesSociais && l.redesSociais.length) ||
+          l.possuiPresencaDigital === "SIM"
+            ? 1
+            : 0;
+        // Quando o agente envia "prioridade" (1=alta … 8=baixa), respeita-a;
+        // senão cai no ranking por tier de score + presença digital.
+        const prioRank = (l) =>
+          typeof l.prioridade === "number" ? l.prioridade : 99;
+        filtered.sort(
+          (a, b) =>
+            prioRank(a) - prioRank(b) ||
+            tierRank(a) - tierRank(b) ||
+            hasDigital(b) - hasDigital(a),
+        );
+        // LIMITE: no máximo 20 cards por resposta. O dedup cross-mensagem
+        // (priorKeys) garante que as próximas mensagens tragam empresas novas,
+        // sem repetir as já exibidas nesta conversa.
+        const MAX_LEADS_PER_RENDER = 20;
+        // BALANCEAMENTO POR FONTE: se a resposta tem clientes (carteira_sameka)
+        // E prospects (oporttuna), exibe metade/metade dentro do limite. Se só
+        // veio um tipo (usuário pediu "só leads" ou "só clientes"), preenche
+        // tudo com esse tipo. Mantém a ordem já calculada dentro de cada grupo.
+        const _isCliente = (l) => {
+          const f = String(l.fonte || "").toLowerCase();
+          if (f.includes("carteira")) return true;
+          if (f.includes("oporttuna")) return false;
+          return /cliente/i.test(String(l.flagCliente || ""));
+        };
+        const clientes = filtered.filter(_isCliente);
+        const prospects = filtered.filter((l) => !_isCliente(l));
+        let visiveis;
+        if (clientes.length && prospects.length) {
+          const metade = Math.floor(MAX_LEADS_PER_RENDER / 2);
+          let nCli = Math.min(metade, clientes.length);
+          let nPro = Math.min(MAX_LEADS_PER_RENDER - nCli, prospects.length);
+          // Se um lado tem menos que a metade, o outro pode ocupar a sobra.
+          nCli = Math.min(
+            clientes.length,
+            MAX_LEADS_PER_RENDER - nPro,
+          );
+          const intercalado = [];
+          let i = 0;
+          while (
+            intercalado.length < nCli + nPro &&
+            (i < clientes.length || i < prospects.length)
+          ) {
+            if (i < nPro && prospects[i]) intercalado.push(prospects[i]);
+            if (i < nCli && clientes[i]) intercalado.push(clientes[i]);
+            i++;
+          }
+          visiveis = intercalado.slice(0, MAX_LEADS_PER_RENDER);
+        } else {
+          visiveis = filtered.slice(0, MAX_LEADS_PER_RENDER);
+        }
+        const ocultadosPorLimite = Math.max(0, filtered.length - visiveis.length);
+        const repeatNote = repetidas
+          ? `<div class="lead-repeat-note" style="font-size:0.8rem;color:var(--text-secondary);margin:4px 0">♻️ ${repetidas} empresa(s) já mostrada(s) antes nesta conversa foi/foram omitida(s).</div>`
+          : "";
+        const limitNote = ocultadosPorLimite
+          ? `<div class="lead-repeat-note" style="font-size:0.8rem;color:var(--text-secondary);margin:4px 0">📋 Mostrando as primeiras 20 empresas. Peça "mostrar mais" para ver as próximas ${ocultadosPorLimite}.</div>`
+          : "";
+        if (!visiveis.length) return repeatNote + limitNote;
+        let html =
+          repeatNote + limitNote + '<div class="lead-cards-container">';
+        visiveis.forEach((lead, idx) => {
           const hasImages = lead.imagens && lead.imagens.length > 0;
           const hasPhones = lead.telefones && lead.telefones.length > 0;
           const hasEmails = lead.emails && lead.emails.length > 0;
@@ -1080,7 +1270,7 @@ lucide.createIcons();
             fonteHtml = `<span class="lead-fonte-badge${fonteClass}">${fonteLabel}</span>`;
           }
           html += `
-          <div class="lead-card${mismatch ? " lead-mismatch" : ""}" data-carousel-idx="0">
+          <div class="lead-card${mismatch ? " lead-mismatch" : ""}" data-carousel-idx="0" data-dedup-key="${_leadDedupKey(lead).replace(/"/g, "")}">
               <div class="lead-card-header" onclick="this.parentElement.classList.toggle('open')">
                   <div class="lead-card-header-left">
                       <div class="lead-card-header-top">
@@ -1222,14 +1412,24 @@ lucide.createIcons();
         const codeBlocks = container.querySelectorAll(
           "code.language-sameka-leads",
         );
+        if (!codeBlocks.length) return;
+        // Chaves de empresas já exibidas em mensagens ANTERIORES da sessão
+        // (exclui o próprio container — re-render de streaming não se auto-suprime).
+        const priorKeys = new Set();
+        document
+          .querySelectorAll("#messagesContainer .lead-card[data-dedup-key]")
+          .forEach((el) => {
+            if (!container.contains(el))
+              priorKeys.add(el.getAttribute("data-dedup-key"));
+          });
         codeBlocks.forEach((code) => {
           const pre = code.closest("pre");
           if (!pre) return;
           try {
-            const json = JSON.parse(code.textContent);
-            if (Array.isArray(json) && json.length > 0) {
+            const json = _normalizeLeads(JSON.parse(code.textContent));
+            if (json.length > 0) {
               const wrapper = document.createElement("div");
-              wrapper.innerHTML = renderLeadCards(json);
+              wrapper.innerHTML = renderLeadCards(json, priorKeys);
               pre.replaceWith(wrapper);
               lucide.createIcons();
               // Sincroniza a contagem do título ("X empresas encontradas")
@@ -1248,8 +1448,18 @@ lucide.createIcons();
       // para refletir os cards efetivamente exibidos.
       function syncLeadCount(container, count) {
         if (!container || count == null) return;
-        const re =
-          /(\d+)(\s+(?:novas?\s+)?empresas?\s+encontradas?)/i;
+        // Padrão legado ("5 empresas encontradas") e novo formato humanizado
+        // do agente ("Encontrei 5 empresas em Cidade").
+        const patterns = [
+          {
+            re: /(\d+)(\s+(?:novas?\s+)?empresas?\s+encontradas?)/i,
+            rep: () => String(count) + "$2",
+          },
+          {
+            re: /(encontrei\s+)(\d+)(\s+(?:novas?\s+)?empresas?)/i,
+            rep: () => "$1" + String(count) + "$3",
+          },
+        ];
         const walker = document.createTreeWalker(
           container,
           NodeFilter.SHOW_TEXT,
@@ -1258,18 +1468,66 @@ lucide.createIcons();
         const nodes = [];
         while (walker.nextNode()) nodes.push(walker.currentNode);
         nodes.forEach((node) => {
-          if (re.test(node.nodeValue)) {
-            node.nodeValue = node.nodeValue.replace(
-              re,
-              String(count) + "$2",
-            );
-          }
+          patterns.forEach(({ re, rep }) => {
+            if (re.test(node.nodeValue)) {
+              node.nodeValue = node.nodeValue.replace(re, rep());
+            }
+          });
         });
       }
 
       // Embrulha imagens de produto Sameka em cards visuais e agrupa imagens consecutivas
+      // Converte blocos ```sameka-product-images (JSON do agente) em <img>
+      // antes de processProductImages, que então monta os cards/grid.
+      function processProductImageBlocks(container) {
+        if (!container) return;
+        const codeBlocks = container.querySelectorAll(
+          "code.language-sameka-product-images",
+        );
+        if (!codeBlocks.length) return;
+        codeBlocks.forEach((code) => {
+          const pre = code.closest("pre");
+          if (!pre) return;
+          try {
+            let data = JSON.parse(code.textContent);
+            if (data && !Array.isArray(data) && typeof data === "object") {
+              data =
+                data.imagens ||
+                data.produtos ||
+                data.images ||
+                data.data ||
+                data.items ||
+                [];
+            }
+            if (!Array.isArray(data) || !data.length) return;
+            const wrapper = document.createElement("div");
+            data.forEach((item) => {
+              if (!item || typeof item !== "object") return;
+              const src =
+                item.imagem ||
+                item.imagemUrl ||
+                item.url ||
+                item.src ||
+                item.foto ||
+                "";
+              if (!src) return;
+              const nome = item.produto || item.nome || item.titulo || "";
+              const desc = item.descricao || item.cor || item.variacao || "";
+              const alt = [nome, desc].filter(Boolean).join(" — ");
+              const img = document.createElement("img");
+              img.setAttribute("src", src);
+              if (alt) img.setAttribute("alt", alt);
+              img.setAttribute("loading", "lazy");
+              wrapper.appendChild(img);
+            });
+            if (wrapper.children.length) pre.replaceWith(wrapper);
+          } catch (e) {}
+        });
+      }
+
       function processProductImages(container) {
         if (!container) return;
+        processProductImageBlocks(container);
         const imgs = Array.from(container.querySelectorAll("img"));
         imgs.forEach((img) => {
           const src = img.getAttribute("src") || "";

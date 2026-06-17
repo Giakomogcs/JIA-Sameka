@@ -7,17 +7,23 @@
       "name": "Execute Workflow Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1,
-      "position": [-112, 0]
+      "position": [
+        -112,
+        0
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const dadosIa = $input.item.json;\n\nlet cidade = dadosIa.cidade || '';\nlet uf = dadosIa.uf || '';\nlet limite = dadosIa.limite || 20;\n\n// Se a IA mandou tudo num campo \"query\" (ex: \"Diadema, SP\" ou \"Diadema - SP\")\nif (dadosIa.query && !cidade) {\n    let partes = dadosIa.query.split(/,| - |-/); // Separa usando vírgula ou traço\n    cidade = partes[0] ? partes[0].trim() : '';\n    uf = partes[1] ? partes[1].trim() : '';\n}\n\n// Retorna limpo e com fallbacks de segurança\nreturn {\n    json: {\n        cidade: cidade || 'Birigui',\n        uf: uf || 'SP',\n        limite: limite\n    }\n};"
+        "jsCode": "// Resolve cidade/uf -> NOME OFICIAL IBGE (com acentos), tolerante a\r\n// ausência de acentos E a erros de digitação. Os endpoints de leads são\r\n// acento-sensíveis e não perdoam typos; aqui devolvemos sempre o nome\r\n// canônico do IBGE quando houver um match razoável.\r\n\r\nconst dadosIa = $input.item.json;\r\n\r\nlet cidade = dadosIa.cidade || '';\r\nlet uf = dadosIa.uf || '';\r\nlet limite = dadosIa.limite || 20;\r\n\r\n// Se a IA mandou tudo num campo \"query\" (ex: \"Diadema, SP\" ou \"Diadema - SP\")\r\nif (dadosIa.query && !cidade) {\r\n    let partes = dadosIa.query.split(/,| - |-/); // Separa usando vírgula ou traço\r\n    cidade = partes[0] ? partes[0].trim() : '';\r\n    uf = partes[1] ? partes[1].trim() : '';\r\n}\r\n\r\n// Fallbacks de segurança\r\ncidade = (cidade || 'Birigui').trim();\r\nuf = (uf || 'SP').trim().toUpperCase();\r\n\r\n// Remove acentos + caixa baixa para comparação tolerante.\r\nfunction fold(s) {\r\n    return String(s || '')\r\n        .normalize('NFD')\r\n        .replace(/[\\u0300-\\u036f]/g, '')\r\n        .toLowerCase()\r\n        .replace(/\\s+/g, ' ')\r\n        .trim();\r\n}\r\n\r\n// Distância de Levenshtein (tolera erros de digitação).\r\nfunction levenshtein(a, b) {\r\n    a = a || '';\r\n    b = b || '';\r\n    const m = a.length;\r\n    const n = b.length;\r\n    if (!m) return n;\r\n    if (!n) return m;\r\n    let prev = new Array(n + 1);\r\n    for (let j = 0; j <= n; j++) prev[j] = j;\r\n    for (let i = 1; i <= m; i++) {\r\n        const cur = [i];\r\n        for (let j = 1; j <= n; j++) {\r\n            const cost = a[i - 1] === b[j - 1] ? 0 : 1;\r\n            cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);\r\n        }\r\n        prev = cur;\r\n    }\r\n    return prev[n];\r\n}\r\n\r\n// Tenta resolver o nome oficial (acentuado) da cidade via IBGE.\r\n// Defensivo: qualquer falha mantém a cidade original (comportamento atual).\r\ntry {\r\n    if (uf && /^[A-Z]{2}$/.test(uf)) {\r\n        const municipios = await this.helpers.httpRequest({\r\n            method: 'GET',\r\n            url: `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios`,\r\n            json: true,\r\n            timeout: 8000,\r\n        });\r\n        if (Array.isArray(municipios) && municipios.length) {\r\n            const alvo = fold(cidade);\r\n            // 1) match exato (sem acento)\r\n            let achado = municipios.find((m) => fold(m.nome) === alvo);\r\n            // 2) começa-com único (cobre abreviações como \"Balneario\")\r\n            if (!achado) {\r\n                const candidatos = municipios.filter((m) => fold(m.nome).startsWith(alvo));\r\n                if (candidatos.length === 1) achado = candidatos[0];\r\n            }\r\n            // 3) contém único (digitou só parte do nome composto)\r\n            if (!achado && alvo.length >= 4) {\r\n                const candidatos = municipios.filter((m) => fold(m.nome).includes(alvo));\r\n                if (candidatos.length === 1) achado = candidatos[0];\r\n            }\r\n            // 4) fuzzy: menor distância de Levenshtein dentro de um limiar\r\n            //    proporcional ao tamanho do nome (cobre \"escrevi errado\").\r\n            if (!achado) {\r\n                let melhor = null;\r\n                let melhorDist = Infinity;\r\n                let segundaDist = Infinity;\r\n                for (const m of municipios) {\r\n                    const d = levenshtein(alvo, fold(m.nome));\r\n                    if (d < melhorDist) {\r\n                        segundaDist = melhorDist;\r\n                        melhorDist = d;\r\n                        melhor = m;\r\n                    } else if (d < segundaDist) {\r\n                        segundaDist = d;\r\n                    }\r\n                }\r\n                // tolera ~34% do tamanho digitado (mín. 2 erros) e exige que o\r\n                // melhor candidato seja claramente melhor que o segundo.\r\n                const limiar = Math.max(2, Math.floor(alvo.length * 0.34));\r\n                if (melhor && melhorDist <= limiar && melhorDist < segundaDist) {\r\n                    achado = melhor;\r\n                }\r\n            }\r\n            if (achado && achado.nome) {\r\n                cidade = achado.nome; // nome oficial COM acento\r\n            }\r\n        }\r\n    }\r\n} catch (e) {\r\n    // IBGE indisponível -> segue com a cidade informada\r\n}\r\n\r\nreturn {\r\n    json: {\r\n        cidade: cidade,\r\n        uf: uf,\r\n        limite: limite\r\n    }\r\n};\r\n"
       },
       "id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
       "name": "Normalizar Input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [64, 0]
+      "position": [
+        64,
+        0
+      ]
     },
     {
       "parameters": {
@@ -32,7 +38,10 @@
       "name": "Login API",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [256, 0]
+      "position": [
+        256,
+        0
+      ]
     },
     {
       "parameters": {
@@ -51,6 +60,10 @@
             {
               "name": "limite",
               "value": "={{ $('Normalizar Input').first().json.limite }}"
+            },
+            {
+              "value": "true",
+              "name": "removerContatosContabeis"
             }
           ]
         },
@@ -80,17 +93,23 @@
       "name": "Consultar Clientes",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [464, 0]
+      "position": [
+        464,
+        0
+      ]
     },
     {
       "parameters": {
-        "jsCode": "// Função para corrigir caracteres corrompidos (UTF-8 vs ISO-8859-1)\nfunction fixEncoding(text) {\n    if (typeof text !== 'string') return text;\n    try {\n        return decodeURIComponent(escape(text));\n    } catch (e) {\n        return text\n            .replace(/茫/g, 'ã')\n            .replace(/茅/g, 'é')\n            .replace(/铆/g, 'í')\n            .replace(/贸/g, 'ó')\n            .replace(/煤/g, 'ú')\n            .replace(/锚/g, 'ê')\n            .replace(/芒/g, 'â')\n            .replace(/SA煤de/g, 'Saúde');\n    }\n}\n\nconst payload = $input.item.json || {};\nconst codigo = payload.codigo;\nconst clientesBrutos = Array.isArray(payload.retorno) ? payload.retorno : [];\n\n// Se a API devolveu erro (cidade não encontrada, dataset inexistente, etc.)\n// devolva um envelope vazio porém válido, sinalizando para o agente cair na\n// próxima fonte (Oporttuna ou RAG/planilha).\nif (codigo && codigo >= 400) {\n    return {\n        json: {\n            ok: false,\n            fonte: 'carteira_sameka',\n            total: 0,\n            clientes: [],\n            error: payload.mensagem || 'Consulta na carteira Sameka falhou',\n            codigo: codigo\n        }\n    };\n}\n\nconst clientesFiltrados = clientesBrutos.map(c => ({\n    // Identificação\n    cnpj: c.cnpjCompleto,\n    tipoCNPJ: c.tipoCNPJ,\n    empresa: fixEncoding(c.razaoSocial),\n    nomeFantasia: fixEncoding(c.nomeFantasia),\n    situacaoCadastral: fixEncoding(c.situacaoCadastral),\n\n    // Localização para o Roteiro\n    endereco: fixEncoding(c.enderecoCompleto),\n    bairro: fixEncoding(c.bairro),\n    cidade: fixEncoding(c.cidade),\n    uf: c.uf,\n    cep: c.cep,\n    tipoLogradouro: c.tipoLogradouro,\n\n    // Contatos diretos\n    telefones: c.telefones || [],\n    emails: c.emails || [],\n\n    // Mídia\n    fotos: c.fotos || [],\n\n    // Presença Digital e Redes Sociais\n    redesSociais: c.redesSociais || [],\n    possuiPresencaDigital: c.possuiPresencaDigital,\n\n    // Inteligência de Vendas\n    natureza: fixEncoding(c.naturezaJuridica),\n    faturamento: c.indicadorAtividade?.faixaFaturamento,\n    score: {\n        nota: c.notaICP,\n        classificacao: c.classificacaoICP,\n        descricao: fixEncoding(c.descricaoClassificacaoICP)\n    },\n\n    // Marcador de origem — clientes da carteira Sameka\n    empresaCliente: c.empresaCliente || 'SIM',\n    empresaProspect: c.empresaProspect || 'NAO',\n    fonte: 'carteira_sameka'\n}));\n\nreturn {\n    json: {\n        ok: true,\n        fonte: 'carteira_sameka',\n        total: clientesFiltrados.length,\n        clientes: clientesFiltrados\n    }\n};"
+        "jsCode": "// Função para corrigir caracteres corrompidos (UTF-8 vs ISO-8859-1)\r\nfunction fixEncoding(text) {\r\n    if (typeof text !== 'string') return text;\r\n    try {\r\n        return decodeURIComponent(escape(text));\r\n    } catch (e) {\r\n        return text\r\n            .replace(/茫/g, 'ã')\r\n            .replace(/茅/g, 'é')\r\n            .replace(/铆/g, 'í')\r\n            .replace(/贳/g, 'ó')\r\n            .replace(/煤/g, 'ú')\r\n            .replace(/锚/g, 'ê')\r\n            .replace(/芒/g, 'â');\r\n    }\r\n}\r\n\r\nconst leadsBrutos = $input.item.json.retorno || [];\r\n\r\n// FASE 3: DESCARTE DE BAIXADAS/INATIVAS E CPF\r\nconst leadsValidos = leadsBrutos.filter(lead => {\r\n    // Descartar tipoCNPJ = CPF (pessoa física sem loja formal)\r\n    if (lead.tipoCNPJ === 'CPF') return false;\r\n    \r\n    // Descartar situacaoCadastral BAIXADA/INAPTA/SUSPENSA/NULA\r\n    const situacao = (lead.situacaoCadastral || '').toUpperCase();\r\n    if (situacao.includes('BAIXAD') || situacao.includes('INAPT') || \r\n        situacao.includes('SUSPENS') || situacao.includes('NULA')) {\r\n        return false;\r\n    }\r\n    \r\n    return true;\r\n});\r\n\r\nconst leadsFiltrados = leadsValidos.map(lead => ({\r\n    // Identificação Básica\r\n    empresa: fixEncoding(lead.razaoSocial),\r\n    nomeFantasia: fixEncoding(lead.nomeFantasia),\r\n    cnpj: lead.cnpjCompleto || null,\r\n\r\n    // Localização para o Roteiro\r\n    endereco: fixEncoding(lead.enderecoCompleto),\r\n    bairro: fixEncoding(lead.bairro),\r\n    cidade: fixEncoding(lead.cidade),\r\n    uf: lead.uf,\r\n    cep: lead.cep,  // FASE 3b\r\n    tipoLogradouro: lead.tipoLogradouro,\r\n\r\n    // Contatos diretos\r\n    telefones: lead.telefones || [],\r\n    emails: lead.emails || [],\r\n    sites: lead.sites || [],\r\n\r\n    // Mídia\r\n    fotos: lead.fotos || [],\r\n\r\n    // Presença Digital e Redes Sociais\r\n    redesSociais: lead.redesSociais || [],\r\n    possuiPresencaDigital: lead.possuiPresencaDigital,\r\n\r\n    // Inteligência de Vendas\r\n    atividadeEconomica: fixEncoding(lead.atividadeEconomica),\r\n    atividadeEconomicaSk: lead.atividadeEconomicaSk,  // FASE 3b\r\n    porte: lead.porte,\r\n    dataAbertura: lead.dataAbertura,\r\n    faturamento: lead.indicadorAtividade?.faixaFaturamento,\r\n    numeroFuncionarios: lead.indicadorAtividade?.numeroFuncionarios,\r\n    natureza: fixEncoding(lead.naturezaJuridica),\r\n    \r\n    // FASE 3b: Novos campos cadastrais e tributários\r\n    situacaoCadastral: lead.situacaoCadastral,\r\n    tipoCNPJ: lead.tipoCNPJ,\r\n    regimeTributario: lead.regimeTributario,\r\n    simples: lead.simples,\r\n    mei: lead.mei,\r\n    \r\n    empresaCliente: lead.empresaCliente,\r\n    empresaProspect: lead.empresaProspect,\r\n    \r\n    score: {\r\n        nota: lead.notaICP,\r\n        classificacao: lead.classificacaoICP,\r\n        descricao: fixEncoding(lead.descricaoClassificacaoICP)\r\n    },\r\n    \r\n    // FASE 3b: IDs de controle\r\n    idConsulta: lead.idConsulta,\r\n    municipioSk: lead.municipioSk,\r\n\r\n    // Origem do dado\r\n    fonte: 'oporttuna'\r\n}));\r\n\r\n// FASE 3: CÁLCULO DE PERFIL INFANTIL E DIGITAL\r\nfunction calcularPerfilInfantil(l) {\r\n    const cnae = (l.atividadeEconomica || '').toLowerCase();\r\n    const infantilKeywords = ['infantil', 'bebê', 'bebe', 'criança', 'crianca', 'kids', 'baby'];\r\n    return infantilKeywords.some(kw => cnae.includes(kw));\r\n}\r\n\r\nfunction temPresencaDigital(l) {\r\n    return l.possuiPresencaDigital === 'SIM' || \r\n           (l.redesSociais || []).length > 0 || \r\n           (l.sites || []).length > 0;\r\n}\r\n\r\nfunction digitalScore(l) {\r\n    let s = 0;\r\n    if ((l.redesSociais || []).length) s += 4;\r\n    if (l.possuiPresencaDigital === 'SIM') s += 3;\r\n    if ((l.fotos || []).length) s += 2;\r\n    if ((l.sites || []).length) s += 2;\r\n    if ((l.telefones || []).length) s += 1;\r\n    if ((l.emails || []).length) s += 1;\r\n    return s;\r\n}\r\n\r\n// Adicionar campos calculados\r\nleadsFiltrados.forEach(lead => {\r\n    lead.perfilInfantil = calcularPerfilInfantil(lead);\r\n    lead.temPresencaDigital = temPresencaDigital(lead);\r\n});\r\n\r\n// PRIORIZAÇÃO: perfil infantil + presença digital primeiro\r\nleadsFiltrados.sort((a, b) => {\r\n    if (a.perfilInfantil !== b.perfilInfantil) return b.perfilInfantil ? 1 : -1;\r\n    return digitalScore(b) - digitalScore(a);\r\n});\r\n\r\nreturn {\r\n    json: {\r\n        ok: true,\r\n        fonte: 'oporttuna',\r\n        origem: 'api_oporttuna_leads_por_cidade',\r\n        total: leadsFiltrados.length,\r\n        totalBruto: leadsBrutos.length,\r\n        totalDescartado: leadsBrutos.length - leadsValidos.length,\r\n        leads: leadsFiltrados\r\n    }\r\n};\r\n"
       },
       "id": "e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8091",
       "name": "Filtrar Dados",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [656, 0]
+      "position": [
+        656,
+        0
+      ]
     }
   ],
   "pinData": {},
