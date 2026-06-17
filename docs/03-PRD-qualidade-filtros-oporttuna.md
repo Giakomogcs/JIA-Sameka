@@ -12,67 +12,67 @@ Hoje as chamadas `GET-Leads`/`GET-Clientes` mandam apenas `cidade/uf/limite`. A 
 
 ## 3. Estratégia em 3 camadas
 
-| Camada | Onde | O que faz |
-|--------|------|-----------|
-| **A. Filtro na origem** | ✅ **AUTOMÁTICO** — API Oporttuna já aplica perfil ICP de varejo infantil Sameka, filtrando e ordenando por nota. Opcionalmente: query params `apenasNovosProspects`, `removerContatosContabeis`, `visibilidadeComercial` (two-pass). | Leads já vêm pré-qualificados (varejo infantil, ordenados por ICP maior → menor). |
-| **B. Pós-processamento determinístico** | node `Filtrar Dados` (Code) dos subflows | Descarta `situacaoCadastral` inválida, calcula `perfilInfantil`/`temPresencaDigital`, rebaixa por presença digital, mapeia novos campos (`regimeTributario`, `simples`, `mei`, `tipoCNPJ`, `cep`, `idConsulta`). |
-| **C. Heurística do agente/front** | system prompt + `isMismatch` | Rede de segurança final (Regra 6: tier A/B/C por sinais cruzados). |
+| Camada                                  | Onde                                                                                                                                                                                                                                  | O que faz                                                                                                                                                                                                        |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A. Filtro na origem**                 | ✅ **AUTOMÁTICO** — API Oporttuna já aplica perfil ICP de varejo infantil Sameka, filtrando e ordenando por nota. Opcionalmente: query params `apenasNovosProspects`, `removerContatosContabeis`, `visibilidadeComercial` (two-pass). | Leads já vêm pré-qualificados (varejo infantil, ordenados por ICP maior → menor).                                                                                                                                |
+| **B. Pós-processamento determinístico** | node `Filtrar Dados` (Code) dos subflows                                                                                                                                                                                              | Descarta `situacaoCadastral` inválida, calcula `perfilInfantil`/`temPresencaDigital`, rebaixa por presença digital, mapeia novos campos (`regimeTributario`, `simples`, `mei`, `tipoCNPJ`, `cep`, `idConsulta`). |
+| **C. Heurística do agente/front**       | system prompt + `isMismatch`                                                                                                                                                                                                          | Rede de segurança final (Regra 6: tier A/B/C por sinais cruzados).                                                                                                                                               |
 
 ## 4. Requisitos funcionais
 
 ### 4.1 Camada A — filtro na origem (Oporttuna)
 
-| ID | Requisito |
-|----|-----------|
-| RF-10 | (OPCIONAL) As chamadas podem enviar `filtro` (JSON URL-encoded) com `visibilidadeComercial` incluindo presença digital (ex.: `["REDES_SOCIAIS","SITES","TELEFONES","PRESENCA_DIGITAL"]`) para afinar ainda mais. |
+| ID    | Requisito                                                                                                                                                                                                                                                                                           |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RF-10 | (OPCIONAL) As chamadas podem enviar `filtro` (JSON URL-encoded) com `visibilidadeComercial` incluindo presença digital (ex.: `["REDES_SOCIAIS","SITES","TELEFONES","PRESENCA_DIGITAL"]`) para afinar ainda mais.                                                                                    |
 | RF-11 | ~~As chamadas devem enviar `palavrasChaveQualificacao` de varejo infantil~~ **REDUNDANTE** — a API Oporttuna já aplica automaticamente o perfil ICP de varejo infantil cadastrado para a Sameka, filtrando e ordenando por nota ICP (maior → menor). Não requer header `x-perfil-icp-id` explícito. |
-| RF-12 | ~~`palavrasChaveDesqualificacao`~~ **REDUNDANTE** pelo mesmo motivo. |
-| RF-13 | ~~enviar header `x-perfil-icp-id`~~ **NÃO NECESSÁRIO** — o perfil ICP é reconhecido automaticamente via token/tenant da Sameka. O retorno já vem filtrado e ordenado por ICP. |
-| RF-14 | ~~`ramoAtividade` (CNAE)~~ **REDUNDANTE** — coberto pelo perfil ICP automático. |
-| RF-15 | O `filtro` deve ser **parametrizável** (um único node "Montar Filtro" que constrói o JSON), não espalhado/hardcoded. |
+| RF-12 | ~~`palavrasChaveDesqualificacao`~~ **REDUNDANTE** pelo mesmo motivo.                                                                                                                                                                                                                                |
+| RF-13 | ~~enviar header `x-perfil-icp-id`~~ **NÃO NECESSÁRIO** — o perfil ICP é reconhecido automaticamente via token/tenant da Sameka. O retorno já vem filtrado e ordenado por ICP.                                                                                                                       |
+| RF-14 | ~~`ramoAtividade` (CNAE)~~ **REDUNDANTE** — coberto pelo perfil ICP automático.                                                                                                                                                                                                                     |
+| RF-15 | O `filtro` deve ser **parametrizável** (um único node "Montar Filtro" que constrói o JSON), não espalhado/hardcoded.                                                                                                                                                                                |
 
 > ⚠️ **`possuiConsultaAvancada: "SIM"` e `visibilidadeComercial` excluem empresas sem enriquecimento.** Em cidades pequenas isso pode zerar o retorno. Por isso a Camada A deve ser **estratégia de 2 passes** (RF-16).
 
-| ID | Requisito |
-|----|-----------|
+| ID    | Requisito                                                                                                                                                                                                                                                                              |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | RF-16 | **Two-pass:** 1º passe com filtro estrito (digital + perfil infantil). Se `total` < limiar (ex.: 3), 2º passe relaxado (sem `visibilidadeComercial`/`possuiConsultaAvancada`, mantendo palavras-chave) para não deixar a cidade vazia. O agente sinaliza quando usou o passe relaxado. |
 
 ### 4.1.1 Parâmetros/campos de alto valor (ver doc 05 — Parte 3)
 
-| ID | Requisito |
-|----|-----------|
+| ID    | Requisito                                                                                                                                                                                               |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | RF-17 | Enviar `apenasNovosProspects: "NAO_CLIENTES"` no `filtro` do GET-Leads, para que `Consultar_Leads_Oporttuna` traga **apenas prospects que ainda não são clientes** (elimina duplicação com a carteira). |
-| RF-18 | Enviar `removerContatosContabeis: true` em ambas as chamadas, para o contato vir da loja e não da contabilidade. |
-| RF-19 | (Fase 2b) avaliar `filtro.porte` para descartar redes grandes na origem (requer `__FILL_ME__OPORTTUNA_PORTE_SK__`). |
+| RF-18 | Enviar `removerContatosContabeis: true` em ambas as chamadas, para o contato vir da loja e não da contabilidade.                                                                                        |
+| RF-19 | (Fase 2b) avaliar `filtro.porte` para descartar redes grandes na origem (requer `__FILL_ME__OPORTTUNA_PORTE_SK__`).                                                                                     |
 
 ### 4.2 Camada B — pós-processamento determinístico (`Filtrar Dados`)
 
-| ID | Requisito |
-|----|-----------|
-| RF-20 | Descartar empresas com `situacaoCadastral ∈ {BAIXADA, INAPTA, SUSPENSA, NULA}`. |
-| RF-21 | Classificar `perfilInfantil` (boolean) por nome/CNAE usando listas de qualificação/desqualificação; calçado adulto explícito → `perfilInfantil=false`. |
-| RF-22 | Marcar `temPresencaDigital` = `possuiPresencaDigital === "SIM" || redesSociais.length || sites.length`. |
-| RF-23 | Ordenar a saída: (1) perfil infantil + digital, (2) perfil infantil sem digital, (3) demais. Nunca **apagar** silenciosamente os "demais" — apenas rebaixar e anotar o motivo, deixando o teto final para o agente/Regra 6. |
-| RF-25 | **Mapear `situacaoCadastral` também no GET-Leads** (hoje só o GET-Clientes mapeia) e aplicar o descarte de RF-20 aos prospects da Oporttuna (ver doc 05 §3.1). |
-| RF-26 | Passar adiante os campos de qualificação hoje descartados: `regimeTributario`, `simples`, `mei`, `tipoCNPJ` (GET-Leads), `cep` (GET-Leads). Passe literal, sem inventar valores (ver doc 05 §3). |
-| RF-27 | (Opcional, descarte) remover prospects com `tipoCNPJ == "CPF"` (pessoa física, sem loja formal) — confirmar com o usuário. |
-| RF-28 | Incluir `idConsulta` da resposta da API no envelope `{ok,...}` como metadado de rastreabilidade (ver doc 05 §3.5). |
+| ID    | Requisito                                                                                                                                                                                                                                                                                              |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --- | ------------------- | --- | -------------- |
+| RF-20 | Descartar empresas com `situacaoCadastral ∈ {BAIXADA, INAPTA, SUSPENSA, NULA}`.                                                                                                                                                                                                                        |
+| RF-21 | Classificar `perfilInfantil` (boolean) por nome/CNAE usando listas de qualificação/desqualificação; calçado adulto explícito → `perfilInfantil=false`.                                                                                                                                                 |
+| RF-22 | Marcar `temPresencaDigital` = `possuiPresencaDigital === "SIM"                                                                                                                                                                                                                                         |     | redesSociais.length |     | sites.length`. |
+| RF-23 | Ordenar a saída: (1) perfil infantil + digital, (2) perfil infantil sem digital, (3) demais. Nunca **apagar** silenciosamente os "demais" — apenas rebaixar e anotar o motivo, deixando o teto final para o agente/Regra 6.                                                                            |
+| RF-25 | **Mapear `situacaoCadastral` também no GET-Leads** (hoje só o GET-Clientes mapeia) e aplicar o descarte de RF-20 aos prospects da Oporttuna (ver doc 05 §3.1).                                                                                                                                         |
+| RF-26 | Passar adiante os campos de qualificação hoje descartados: `regimeTributario`, `simples`, `mei`, `tipoCNPJ` (GET-Leads), `cep` (GET-Leads). Passe literal, sem inventar valores (ver doc 05 §3).                                                                                                       |
+| RF-27 | (Opcional, descarte) remover prospects com `tipoCNPJ == "CPF"` (pessoa física, sem loja formal) — confirmar com o usuário.                                                                                                                                                                             |
+| RF-28 | Incluir `idConsulta` da resposta da API no envelope `{ok,...}` como metadado de rastreabilidade (ver doc 05 §3.5).                                                                                                                                                                                     |
 | RF-24 | A normalização de empresas "antigas" (campo `dataAbertura` muito antigo) **não** deve descartar por idade — loja antiga pode ser ótimo cliente. "Empresas antigas" do chamado se refere a **cadastro desatualizado** (resolvido na Parte 1), não a data de fundação. (Validar com o usuário — ver §7.) |
 
 ### 4.3 Camada C — agente/front (ajuste leve)
 
-| ID | Requisito |
-|----|-----------|
-| RF-30 | O system prompt passa a confiar que a Oporttuna já vem pré-filtrada; mantém a Regra 6 (ranking TOP 1 / TOP 20) e o teto de "sem digital". |
+| ID    | Requisito                                                                                                                                                                                                 |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RF-30 | O system prompt passa a confiar que a Oporttuna já vem pré-filtrada; mantém a Regra 6 (ranking TOP 1 / TOP 20) e o teto de "sem digital".                                                                 |
 | RF-31 | `MISMATCH_KEYWORDS`/`VAREJO_INFANTIL_KEYWORDS` no `front-sameka.html` permanecem como rede de segurança; nenhuma keyword nova obrigatória, mas alinhar com as listas da Camada B para evitar divergência. |
 
 ## 5. Requisitos não-funcionais
 
-| ID | Requisito |
-|----|-----------|
+| ID     | Requisito                                                                                                                                                                                                        |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | RNF-10 | Toda sintaxe nova da API Oporttuna (formato exato do `filtro`, enums de `visibilidadeComercial`) deve seguir `openapi-inteligencia-negocio.yaml`. Se algum SK/valor não estiver documentado, usar `__FILL_ME__`. |
-| RNF-11 | As listas de palavras-chave ficam num único ponto (node "Montar Filtro" + listas no `Filtrar Dados`), versionadas, para fácil ajuste comercial. |
-| RNF-12 | A chamada deve degradar com elegância (two-pass) — nunca derrubar o roteiro por excesso de filtro. |
+| RNF-11 | As listas de palavras-chave ficam num único ponto (node "Montar Filtro" + listas no `Filtrar Dados`), versionadas, para fácil ajuste comercial.                                                                  |
+| RNF-12 | A chamada deve degradar com elegância (two-pass) — nunca derrubar o roteiro por excesso de filtro.                                                                                                               |
 
 ## 6. Critérios de aceite
 
@@ -94,9 +94,9 @@ Hoje as chamadas `GET-Leads`/`GET-Clientes` mandam apenas `cidade/uf/limite`. A 
 
 ## 8. Riscos
 
-| Risco | Mitigação |
-|-------|-----------|
-| Filtro estrito zera cidades pequenas | Two-pass (RF-16) |
-| `filtro` mal-formado → API ignora ou dá 400 | Validar contra `openapi-inteligencia-negocio.yaml`; testar em 3 cidades antes de ativar |
-| Palavras-chave de qualificação cortam nichos válidos (ex.: "boutique") | Lista revisável (RNF-11); começar permissivo e apertar |
-| ICP indisponível | Cair na heurística atual do agente (sem regressão) |
+| Risco                                                                  | Mitigação                                                                               |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Filtro estrito zera cidades pequenas                                   | Two-pass (RF-16)                                                                        |
+| `filtro` mal-formado → API ignora ou dá 400                            | Validar contra `openapi-inteligencia-negocio.yaml`; testar em 3 cidades antes de ativar |
+| Palavras-chave de qualificação cortam nichos válidos (ex.: "boutique") | Lista revisável (RNF-11); começar permissivo e apertar                                  |
+| ICP indisponível                                                       | Cair na heurística atual do agente (sem regressão)                                      |

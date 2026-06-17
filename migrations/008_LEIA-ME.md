@@ -1,6 +1,7 @@
 # Correção: Sessões não aparecem no sidebar
 
 ## Problema
+
 As sessões de chat não aparecem no sidebar porque as mensagens antigas não têm o campo `user_id` preenchido. A migration 007 adicionou a coluna e o trigger, mas não preencheu os dados retroativamente.
 
 ## Solução Rápida
@@ -26,7 +27,7 @@ DECLARE
   _updated_count INT := 0;
 BEGIN
   -- Process all human messages without user_id
-  FOR _row IN 
+  FOR _row IN
     SELECT id, session_id, message
     FROM sameka_chat_message
     WHERE user_id IS NULL
@@ -34,17 +35,17 @@ BEGIN
   LOOP
     _content := _row.message->>'content';
     _id_str := substring(_content from 'ID="([0-9a-fA-F-]{36})"');
-    
+
     IF _id_str IS NOT NULL THEN
       _uid := _id_str::UUID;
-      
+
       -- Update this message
       UPDATE sameka_chat_message
       SET user_id = _uid
       WHERE id = _row.id;
-      
+
       _updated_count := _updated_count + 1;
-      
+
       -- Update all messages in the same session
       UPDATE sameka_chat_message
       SET user_id = _uid
@@ -52,12 +53,12 @@ BEGIN
         AND user_id IS NULL;
     END IF;
   END LOOP;
-  
+
   RAISE NOTICE 'Backfill complete. Updated % human messages and propagated to their sessions.', _updated_count;
 END $$;
 
 -- Verify the results
-SELECT 
+SELECT
   COUNT(*) as total_messages,
   COUNT(user_id) as messages_with_user_id,
   COUNT(*) - COUNT(user_id) as messages_missing_user_id
@@ -70,6 +71,7 @@ NOTIFY pgrst, 'reload schema';
 ### Passo 3: Verificar
 
 Após executar o SQL:
+
 1. Recarregue a página do Sameka (F5)
 2. Faça login novamente se necessário
 3. As sessões devem aparecer no sidebar!
@@ -86,7 +88,7 @@ Após executar o SQL:
 Para confirmar que funcionou, execute no SQL Editor:
 
 ```sql
-SELECT 
+SELECT
   COUNT(*) as total_messages,
   COUNT(user_id) as messages_with_user_id,
   COUNT(*) - COUNT(user_id) as messages_missing_user_id

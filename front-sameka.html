@@ -4327,10 +4327,7 @@
           let nCli = Math.min(metade, clientes.length);
           let nPro = Math.min(MAX_LEADS_PER_RENDER - nCli, prospects.length);
           // Se um lado tem menos que a metade, o outro pode ocupar a sobra.
-          nCli = Math.min(
-            clientes.length,
-            MAX_LEADS_PER_RENDER - nPro,
-          );
+          nCli = Math.min(clientes.length, MAX_LEADS_PER_RENDER - nPro);
           const intercalado = [];
           let i = 0;
           while (
@@ -4345,7 +4342,10 @@
         } else {
           visiveis = filtered.slice(0, MAX_LEADS_PER_RENDER);
         }
-        const ocultadosPorLimite = Math.max(0, filtered.length - visiveis.length);
+        const ocultadosPorLimite = Math.max(
+          0,
+          filtered.length - visiveis.length,
+        );
         const repeatNote = repetidas
           ? `<div class="lead-repeat-note" style="font-size:0.8rem;color:var(--text-secondary);margin:4px 0">♻️ ${repetidas} empresa(s) já mostrada(s) antes nesta conversa foi/foram omitida(s).</div>`
           : "";

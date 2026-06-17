@@ -9,10 +9,7 @@
       },
       "id": "845c78ff-1e7f-4095-b1ff-593e67ae945c",
       "name": "When called - GET sessions",
-      "position": [
-        0,
-        0
-      ],
+      "position": [0, 0],
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "webhookId": "d433b917-387e-4aff-adeb-78cd81421956"
@@ -25,10 +22,7 @@
       },
       "id": "da321a69-9f0d-40f9-96f5-7452a98d7cc5",
       "name": "List Sessions from DB",
-      "position": [
-        224,
-        0
-      ],
+      "position": [224, 0],
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "credentials": {
@@ -45,10 +39,7 @@
       },
       "id": "1da37e49-0192-473a-bf66-5531fc353466",
       "name": "Return Sessions",
-      "position": [
-        448,
-        0
-      ],
+      "position": [448, 0],
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1
     }
