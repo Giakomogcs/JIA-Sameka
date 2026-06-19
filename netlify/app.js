@@ -1088,6 +1088,15 @@ function _normalizeLead(l) {
   }
   out.matchSameka =
     l.matchSameka || l.ramoAtividade || l.atividadeEconomica || "";
+  // CLASSIFICAÇÃO cliente vs prospect = dado REAL da API (empresaCliente).
+  // O agente apenas copia esse campo por registro; o front nunca confia
+  // só em `fonte` (que o agente pode rotular errado).
+  const _ec = l.empresaCliente != null ? l.empresaCliente : l.cliente;
+  if (_ec != null && _ec !== "") {
+    out.empresaCliente = /^(sim|s|true|1|cliente)$/i.test(String(_ec).trim())
+      ? "SIM"
+      : "NAO";
+  }
   return out;
 }
 // Aceita um array direto OU um objeto { leads: [...] } (novo formato do
@@ -1158,6 +1167,12 @@ function renderLeadCards(leads, priorKeys) {
   // veio um tipo (usuário pediu "só leads" ou "só clientes"), preenche
   // tudo com esse tipo. Mantém a ordem já calculada dentro de cada grupo.
   const _isCliente = (l) => {
+    // 1º critério: campo REAL da API (empresaCliente). É o dado em que
+    // confiamos — SIM = cliente ativo, NAO = prospect novo.
+    const ec = String(l.empresaCliente || "").toUpperCase();
+    if (ec === "SIM") return true;
+    if (ec === "NAO" || ec === "NÃO") return false;
+    // Fallback (lead sem empresaCliente): usa fonte/flag.
     const f = String(l.fonte || "").toLowerCase();
     if (f.includes("carteira")) return true;
     if (f.includes("oporttuna")) return false;
@@ -1215,26 +1230,12 @@ function renderLeadCards(leads, priorKeys) {
       const isCliente = /cliente/i.test(lead.flagCliente);
       flagHtml = `<span class="lead-flag-cliente${isCliente ? "" : " lead-flag-prospect"}">${lead.flagCliente}</span>`;
     }
-    let fonteHtml = "";
-    if (lead.fonte) {
-      const fonteLower = String(lead.fonte).toLowerCase();
-      const isCarteira = fonteLower.includes("carteira");
-      const isCurada =
-        !isCarteira &&
-        (fonteLower.includes("planilha") ||
-          fonteLower.includes("rag") ||
-          fonteLower.includes("sameka"));
-      let fonteLabel = "🛰️ Oporttuna";
-      let fonteClass = "";
-      if (isCarteira) {
-        fonteLabel = "🤝 Cliente Sameka";
-        fonteClass = " fonte-carteira";
-      } else if (isCurada) {
-        fonteLabel = "⭐ Base Sameka";
-        fonteClass = " fonte-planilha";
-      }
-      fonteHtml = `<span class="lead-fonte-badge${fonteClass}">${fonteLabel}</span>`;
-    }
+    // Badge SEMPRE coerente com a classificação real (empresaCliente).
+    // A classe .fonte-carteira é usada depois para contar clientes nos
+    // cards realmente renderizados e sincronizar o texto do resumo.
+    const fonteHtml = _isCliente(lead)
+      ? '<span class="lead-fonte-badge fonte-carteira">🤝 Cliente Sameka</span>'
+      : '<span class="lead-fonte-badge">🛰️ Oporttuna</span>';
     html += `
           <div class="lead-card${mismatch ? " lead-mismatch" : ""}" data-carousel-idx="0" data-dedup-key="${_leadDedupKey(lead).replace(/"/g, "")}">
               <div class="lead-card-header" onclick="this.parentElement.classList.toggle('open')">
@@ -1397,7 +1398,11 @@ function processLeadBlocks(container) {
         // com o número de cards REALMENTE renderizados após
         // dedup + filtro de perfil — evita "5 encontradas / 4 exibidas".
         const renderedCount = wrapper.querySelectorAll(".lead-card").length;
+        const renderedCli = wrapper.querySelectorAll(
+          ".lead-card .fonte-carteira",
+        ).length;
         syncLeadCount(container, renderedCount);
+        syncLeadBreakdown(container, renderedCli, renderedCount - renderedCli);
       }
     } catch (e) {}
   });
@@ -1433,6 +1438,38 @@ function syncLeadCount(container, count) {
         node.nodeValue = node.nodeValue.replace(re, rep());
       }
     });
+  });
+}
+
+// Reescreve a quebra "{X} são clientes Sameka ativos e {Y} são prospects
+// novos" (e variantes isoladas) para refletir os cards REALMENTE
+// renderizados após dedup + limite. Garante que o texto nunca contradiga
+// as tags dos cards (ex.: "12 clientes" enquanto 0 cards aparecem).
+function syncLeadBreakdown(container, nCli, nPro) {
+  if (!container) return;
+  const dual =
+    /(\d+)(\s+são clientes Sameka ativos e\s+)(\d+)(\s+são prospects novos)/i;
+  const onlyCli = /(\d+)(\s+são clientes Sameka ativos)/i;
+  const onlyPro = /(\d+)(\s+são prospects novos)/i;
+  const walker = document.createTreeWalker(
+    container,
+    NodeFilter.SHOW_TEXT,
+    null,
+  );
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach((node) => {
+    const v = node.nodeValue;
+    if (dual.test(v)) {
+      node.nodeValue = v.replace(
+        dual,
+        (m, g1, g2, g3, g4) => String(nCli) + g2 + String(nPro) + g4,
+      );
+    } else if (onlyCli.test(v)) {
+      node.nodeValue = v.replace(onlyCli, (m, g1, g2) => String(nCli) + g2);
+    } else if (onlyPro.test(v)) {
+      node.nodeValue = v.replace(onlyPro, (m, g1, g2) => String(nPro) + g2);
+    }
   });
 }
 
@@ -2188,6 +2225,211 @@ async function startApp() {
 window.startApp = startApp;
 elements.sendBtn.addEventListener("click", handleSendMessage);
 elements.newChatBtn.addEventListener("click", startNewChat);
+
+// --- Quick actions (atalhos acima do input) ---
+function qaNorm(s) {
+  return String(s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+function qaAllowedCities() {
+  return (currentUserMeta && currentUserMeta.cidades) || [];
+}
+function qaAllowedStates() {
+  return (currentUserMeta && currentUserMeta.estados) || [];
+}
+function sendQuickMessage(text) {
+  if (isLoading || !text) return;
+  elements.messageInput.value = text;
+  handleSendMessage({ preventDefault() {} });
+}
+function setCityWarn(msg) {
+  const w = document.getElementById("qaCityWarn");
+  if (w) w.textContent = msg || "";
+}
+function renderAllowedCities() {
+  const box = document.getElementById("qaCityAllowed");
+  if (!box) return;
+  const cities = qaAllowedCities();
+  const states = qaAllowedStates();
+  const inp = document.getElementById("qaCityInput");
+  if (cities.length) {
+    box.innerHTML =
+      '<span class="qa-allowed-label">Suas cidades — clique para gerar:</span>' +
+      cities
+        .map(
+          (c) =>
+            '<button type="button" class="qa-allowed-chip" data-city="' +
+            String(c).replace(/"/g, "&quot;") +
+            '">' +
+            c +
+            "</button>",
+        )
+        .join("");
+    if (inp) inp.placeholder = "Ou digite outra cidade da sua área...";
+  } else if (states.length) {
+    box.innerHTML =
+      '<span class="qa-allowed-label">Sua área: ' +
+      states.join(", ") +
+      " — digite a cidade.</span>";
+    if (inp) inp.placeholder = "Digite a cidade do roteiro";
+  } else {
+    box.innerHTML = "";
+    if (inp) inp.placeholder = "Digite a cidade do roteiro (ex.: Joinville)";
+  }
+}
+function toggleQuickCityPanel(force) {
+  const panel = document.getElementById("qaCityPanel");
+  const chip = document.querySelector('.qa-chip[data-qa="roteiro"]');
+  if (!panel) return;
+  const open =
+    typeof force === "boolean" ? force : !panel.classList.contains("show");
+  panel.classList.toggle("show", open);
+  if (chip) chip.classList.toggle("active", open);
+  if (open) {
+    setCityWarn("");
+    renderAllowedCities();
+    const inp = document.getElementById("qaCityInput");
+    if (inp) inp.focus();
+  }
+}
+// Valida a cidade digitada contra a área do usuário
+function qaCheckCityAccess(city) {
+  const cities = qaAllowedCities();
+  if (cities.length) {
+    const hit = cities.some((c) => qaNorm(c) === qaNorm(city));
+    if (!hit)
+      return {
+        ok: false,
+        reason:
+          "Você só tem acesso a: " +
+          cities.join(", ") +
+          ". Escolha uma dessas cidades.",
+      };
+  }
+  return { ok: true };
+}
+function generateRoteiroForCity(city) {
+  toggleQuickCityPanel(false);
+  sendQuickMessage("Monte um roteiro de vendas em " + city + ".");
+}
+function submitQuickCity() {
+  const inp = document.getElementById("qaCityInput");
+  if (!inp) return;
+  const city = inp.value.trim();
+  if (!city) {
+    inp.focus();
+    return;
+  }
+  const access = qaCheckCityAccess(city);
+  if (!access.ok) {
+    setCityWarn(access.reason);
+    return;
+  }
+  inp.value = "";
+  generateRoteiroForCity(city);
+}
+// --- Minha região: geolocalização + checagem de acesso ---
+function fallbackMinhaRegiao() {
+  sendQuickMessage("Monte um roteiro de vendas na minha região.");
+}
+function handleMinhaRegiao() {
+  toggleQuickCityPanel(false);
+  if (!navigator.geolocation) return fallbackMinhaRegiao();
+  setStatus("Detectando sua localização...", "");
+  navigator.geolocation.getCurrentPosition(
+    async function (pos) {
+      try {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const url =
+          "https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=" +
+          lat +
+          "&longitude=" +
+          lng +
+          "&localityLanguage=pt";
+        const resp = await fetch(url);
+        const data = await resp.json();
+        const city = data.city || data.locality || "";
+        const uf = String(data.principalSubdivisionCode || "").replace(
+          "BR-",
+          "",
+        );
+        if (!city) return fallbackMinhaRegiao();
+        const cities = qaAllowedCities();
+        const states = qaAllowedStates();
+        let hasAccess = true;
+        if (cities.length)
+          hasAccess = cities.some((c) => qaNorm(c) === qaNorm(city));
+        else if (states.length) hasAccess = states.includes(uf);
+        if (!hasAccess) {
+          const allowed = cities.length ? cities.join(", ") : states.join(", ");
+          toggleQuickCityPanel(true);
+          setCityWarn(
+            "Você parece estar em " +
+              city +
+              (uf ? "/" + uf : "") +
+              ", mas seu acesso é para: " +
+              allowed +
+              ". Escolha uma cidade acima 👆",
+          );
+          return;
+        }
+        generateRoteiroForCity(city + (uf ? " - " + uf : ""));
+      } catch (err) {
+        fallbackMinhaRegiao();
+      }
+    },
+    function () {
+      fallbackMinhaRegiao();
+    },
+    { enableHighAccuracy: false, timeout: 8000, maximumAge: 600000 },
+  );
+}
+(function wireQuickActions() {
+  const bar = document.getElementById("quickActions");
+  if (!bar) return;
+  bar.addEventListener("click", function (e) {
+    const allowedChip = e.target.closest(".qa-allowed-chip");
+    if (allowedChip) {
+      generateRoteiroForCity(allowedChip.getAttribute("data-city"));
+      return;
+    }
+    const regiaoChip = e.target.closest('[data-qa="regiao"]');
+    if (regiaoChip) {
+      handleMinhaRegiao();
+      return;
+    }
+    const sendChip = e.target.closest("[data-qa-send]");
+    if (sendChip) {
+      toggleQuickCityPanel(false);
+      sendQuickMessage(sendChip.getAttribute("data-qa-send"));
+      return;
+    }
+    const roteiroChip = e.target.closest('[data-qa="roteiro"]');
+    if (roteiroChip) {
+      toggleQuickCityPanel();
+      return;
+    }
+  });
+  const cityGo = document.getElementById("qaCityGo");
+  if (cityGo) cityGo.addEventListener("click", submitQuickCity);
+  const cityInput = document.getElementById("qaCityInput");
+  if (cityInput) {
+    cityInput.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        submitQuickCity();
+      }
+    });
+    cityInput.addEventListener("input", function () {
+      setCityWarn("");
+    });
+  }
+  if (window.lucide) lucide.createIcons();
+})();
 
 const toggleSidebarBtn = document.getElementById("toggleSidebarBtn");
 const mainGrid = document.querySelector(".main-grid");
