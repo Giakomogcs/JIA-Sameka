@@ -100,17 +100,17 @@ flowchart TB
 
 Migrations em [`migrations/`](./migrations). Convenções: prefixo `sameka_`; toda RPC é `SECURITY DEFINER SET search_path = auth, public`; cada arquivo termina com `NOTIFY pgrst, 'reload schema'` (recarrega cache do PostgREST). **Não há tabela `profiles`** — os dados do usuário vivem em `auth.users.raw_user_meta_data` (JSONB): `full_name`, `role`, `company_name`, `estados`, `cidades`.
 
-| Migration | O que faz |
-|-----------|-----------|
-| `001_user_crud_functions.sql` | RPCs base sobre `auth.users`: `sameka_admin_list_users()`, `sameka_admin_confirm_user(uuid)`, `sameka_admin_update_user(uuid,text)`, `sameka_admin_delete_user(uuid)` |
-| `002_add_roles.sql` | Adiciona `role` à listagem e parâmetro `p_role` ao update |
-| `003_admin_guards.sql` | Cria `sameka_is_admin()` e adiciona guard `IF NOT sameka_is_admin() THEN RAISE` nas 4 RPCs |
-| `004_add_company_name.sql` | Multi-tenant leve: filtra usuários por `company_name='sameka'`; `sameka_is_admin()` checa company |
-| `005_add_coverage_areas.sql` | Territórios: colunas/params `estados` e `cidades` (JSONB); `sameka_admin_update_user(uuid,text,text,jsonb,jsonb)` |
-| `006_prevent_self_delete.sql` | Guard `IF p_user_id = auth.uid() THEN RAISE` no delete |
-| `007_add_user_to_chat.sql` | Adiciona `user_id UUID` em `sameka_chat_message` + índice; trigger `trg_set_chat_user_id()` extrai o UUID do marcador `[CONTEXTO DO USUÁRIO: ID="..."]` |
-| `008_backfill_user_id.sql` | Backfill único do `user_id` em linhas antigas |
-| `009_fix_auth_null_tokens.sql` | Corrige colunas de token `NULL` em `auth.users` (bug do GoTrue que causa HTTP 500 no login) |
+| Migration                      | O que faz                                                                                                                                                             |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `001_user_crud_functions.sql`  | RPCs base sobre `auth.users`: `sameka_admin_list_users()`, `sameka_admin_confirm_user(uuid)`, `sameka_admin_update_user(uuid,text)`, `sameka_admin_delete_user(uuid)` |
+| `002_add_roles.sql`            | Adiciona `role` à listagem e parâmetro `p_role` ao update                                                                                                             |
+| `003_admin_guards.sql`         | Cria `sameka_is_admin()` e adiciona guard `IF NOT sameka_is_admin() THEN RAISE` nas 4 RPCs                                                                            |
+| `004_add_company_name.sql`     | Multi-tenant leve: filtra usuários por `company_name='sameka'`; `sameka_is_admin()` checa company                                                                     |
+| `005_add_coverage_areas.sql`   | Territórios: colunas/params `estados` e `cidades` (JSONB); `sameka_admin_update_user(uuid,text,text,jsonb,jsonb)`                                                     |
+| `006_prevent_self_delete.sql`  | Guard `IF p_user_id = auth.uid() THEN RAISE` no delete                                                                                                                |
+| `007_add_user_to_chat.sql`     | Adiciona `user_id UUID` em `sameka_chat_message` + índice; trigger `trg_set_chat_user_id()` extrai o UUID do marcador `[CONTEXTO DO USUÁRIO: ID="..."]`               |
+| `008_backfill_user_id.sql`     | Backfill único do `user_id` em linhas antigas                                                                                                                         |
+| `009_fix_auth_null_tokens.sql` | Corrige colunas de token `NULL` em `auth.users` (bug do GoTrue que causa HTTP 500 no login)                                                                           |
 
 Setup equivalente sem rodar SQL manual: o workflow [`Sameka-DB-Schema-Setup.json`](./workspaces/Sameka-DB-Schema-Setup.json) recria o schema de forma **idempotente** (`continueOnFail: true`), cobrindo o equivalente às migrations 001–007 (estratégia **Tier B** — setup pelo n8n, sem apagar dados).
 
@@ -139,15 +139,15 @@ flowchart LR
 
 **Ferramentas do agente** (cada uma é um subflow ou tool node):
 
-| Tool | Destino | Uso |
-|------|---------|-----|
-| `Consultar_Leads_Oporttuna` | `[Sameka] GET-Leads` | Prospects novos por cidade/UF |
-| `Consultar_Clientes_Sameka_API_Oporttuna` | `[Sameka] GET-Clientes` | Clientes ativos (carteira) |
-| `Consultar_IBGE` | `[Sameka]Consulta IBGE` | Lista oficial de municípios por UF |
-| `Consultar_Planilha_Inteligente` | subflow planilha | Busca em planilha de produtos |
-| `Consultar_Imagens_Produtos` | subflow imagens | Imagens de produto |
-| `search_knowledge_base` | pgvector `sameka_documents` / `sameka_match_documents` | Busca semântica no catálogo |
-| `List Documents` / `Get File Contents` / `Query Document Rows` | postgresTool | Metadados/linhas de docs indexados |
+| Tool                                                           | Destino                                                | Uso                                |
+| -------------------------------------------------------------- | ------------------------------------------------------ | ---------------------------------- |
+| `Consultar_Leads_Oporttuna`                                    | `[Sameka] GET-Leads`                                   | Prospects novos por cidade/UF      |
+| `Consultar_Clientes_Sameka_API_Oporttuna`                      | `[Sameka] GET-Clientes`                                | Clientes ativos (carteira)         |
+| `Consultar_IBGE`                                               | `[Sameka]Consulta IBGE`                                | Lista oficial de municípios por UF |
+| `Consultar_Planilha_Inteligente`                               | subflow planilha                                       | Busca em planilha de produtos      |
+| `Consultar_Imagens_Produtos`                                   | subflow imagens                                        | Imagens de produto                 |
+| `search_knowledge_base`                                        | pgvector `sameka_documents` / `sameka_match_documents` | Busca semântica no catálogo        |
+| `List Documents` / `Get File Contents` / `Query Document Rows` | postgresTool                                           | Metadados/linhas de docs indexados |
 
 Workflows auxiliares de manutenção no mesmo JSON: **PruneWebhook** (`sameka-prune-history` → apaga mensagens a partir de um id, usado ao editar) e **Test Connection** (`sameka_health`).
 
@@ -368,32 +368,32 @@ erDiagram
 
 ## 11. Endpoints (webhooks)
 
-| Path (após `…/webhook/`) | Método | Workflow | Função |
-|--------------------------|--------|----------|--------|
-| `sameka-AgentRag` | POST | Sameka-Agent-IA-copy | Mensagem ao agente |
-| `sameka-sessions` | GET | Sameka-Chat-GET-Sessions | Lista sessões do usuário |
-| `sameka-history` | GET | Sameka-Chat-GET-History | Histórico de uma sessão |
-| `sameka-session` | DELETE | Sameka-Chat-DELETE-Session | Apaga sessão |
-| `sameka-prune-history` | POST | Sameka-Agent-IA-copy | Apaga mensagens a partir de um id (editar) |
-| `sameka-chat` | GET | Sameka-Front | Serve o HTML do front |
-| `sameka-rag-docs` | GET/POST | Sameka-RAG | Lista docs do RAG |
-| `sameka-rag-doc-delete` | POST | Sameka-RAG | Remove doc do RAG |
-| `sameka-rag-purge-all` | POST | Sameka-RAG | Purga todo o RAG |
-| `sameka-index-drive` | POST | Sameka-RAG | Indexa novo doc do Drive |
-| `sameka_health` | GET | Sameka-Agent-IA-copy | Healthcheck |
+| Path (após `…/webhook/`) | Método   | Workflow                   | Função                                     |
+| ------------------------ | -------- | -------------------------- | ------------------------------------------ |
+| `sameka-AgentRag`        | POST     | Sameka-Agent-IA-copy       | Mensagem ao agente                         |
+| `sameka-sessions`        | GET      | Sameka-Chat-GET-Sessions   | Lista sessões do usuário                   |
+| `sameka-history`         | GET      | Sameka-Chat-GET-History    | Histórico de uma sessão                    |
+| `sameka-session`         | DELETE   | Sameka-Chat-DELETE-Session | Apaga sessão                               |
+| `sameka-prune-history`   | POST     | Sameka-Agent-IA-copy       | Apaga mensagens a partir de um id (editar) |
+| `sameka-chat`            | GET      | Sameka-Front               | Serve o HTML do front                      |
+| `sameka-rag-docs`        | GET/POST | Sameka-RAG                 | Lista docs do RAG                          |
+| `sameka-rag-doc-delete`  | POST     | Sameka-RAG                 | Remove doc do RAG                          |
+| `sameka-rag-purge-all`   | POST     | Sameka-RAG                 | Purga todo o RAG                           |
+| `sameka-index-drive`     | POST     | Sameka-RAG                 | Indexa novo doc do Drive                   |
+| `sameka_health`          | GET      | Sameka-Agent-IA-copy       | Healthcheck                                |
 
 ---
 
 ## 12. Decisões e regras invioláveis
 
-| Decisão | Razão |
-|---------|-------|
-| Toda lógica no n8n; front "burro" | Trocar prompt/fonte sem redeploy do front; segredos longe do cliente |
-| Metadata-first (sem `profiles`) | Menos joins; território e role viajam no JWT |
-| RPC `SECURITY DEFINER` + `sameka_is_admin()` | Autorização no banco, não confiando só na UI |
-| `file_id` do Drive como chave do RAG | Atualizar doc sem perder vínculos (identidade estável) |
-| Monolito como fonte única + split idempotente | Edição em um lugar; hosting estático sem build |
-| Minificação OFF no Netlify | Minificador quebra JS inline e a ordem de scripts |
+| Decisão                                       | Razão                                                                |
+| --------------------------------------------- | -------------------------------------------------------------------- |
+| Toda lógica no n8n; front "burro"             | Trocar prompt/fonte sem redeploy do front; segredos longe do cliente |
+| Metadata-first (sem `profiles`)               | Menos joins; território e role viajam no JWT                         |
+| RPC `SECURITY DEFINER` + `sameka_is_admin()`  | Autorização no banco, não confiando só na UI                         |
+| `file_id` do Drive como chave do RAG          | Atualizar doc sem perder vínculos (identidade estável)               |
+| Monolito como fonte única + split idempotente | Edição em um lugar; hosting estático sem build                       |
+| Minificação OFF no Netlify                    | Minificador quebra JS inline e a ordem de scripts                    |
 
 **Proibições absolutas:**
 

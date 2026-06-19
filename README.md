@@ -24,28 +24,28 @@ A interface, o agente e os dados são desacoplados: o **front** só fala com web
 
 ## Camadas (5)
 
-| Camada | Pasta / Arquivo | Responsabilidade | Tech |
-|--------|-----------------|------------------|------|
-| **Banco / Auth** | [`migrations/`](./migrations) | Schema de chat, RPCs admin (`SECURITY DEFINER`), roles, territórios | Supabase / Postgres |
-| **Orquestração + Agente** | [`workspaces/`](./workspaces) | Agente LangChain, CRUD de chat, RAG, subflows de leads/IBGE/planilhas | n8n |
-| **Front (monolito)** | [`front-sameka.html`](./front-sameka.html) | Chat, login, sidebar de sessões, modais de admin (usuários/docs) | HTML + JS vanilla |
-| **Front (split estático)** | [`netlify/`](./netlify) | Versão fatiada do monolito para hosting estático | Netlify |
-| **RAG / Catálogo** | parte de `workspaces/` + Drive | Ingestão de PDFs, vetorização, planilhas de produto/imagem | Supabase pgvector + Google Drive/Sheets |
+| Camada                     | Pasta / Arquivo                            | Responsabilidade                                                      | Tech                                    |
+| -------------------------- | ------------------------------------------ | --------------------------------------------------------------------- | --------------------------------------- |
+| **Banco / Auth**           | [`migrations/`](./migrations)              | Schema de chat, RPCs admin (`SECURITY DEFINER`), roles, territórios   | Supabase / Postgres                     |
+| **Orquestração + Agente**  | [`workspaces/`](./workspaces)              | Agente LangChain, CRUD de chat, RAG, subflows de leads/IBGE/planilhas | n8n                                     |
+| **Front (monolito)**       | [`front-sameka.html`](./front-sameka.html) | Chat, login, sidebar de sessões, modais de admin (usuários/docs)      | HTML + JS vanilla                       |
+| **Front (split estático)** | [`netlify/`](./netlify)                    | Versão fatiada do monolito para hosting estático                      | Netlify                                 |
+| **RAG / Catálogo**         | parte de `workspaces/` + Drive             | Ingestão de PDFs, vetorização, planilhas de produto/imagem            | Supabase pgvector + Google Drive/Sheets |
 
 ---
 
 ## Stack
 
-| Dimensão | Tecnologia |
-|----------|-----------|
-| Orquestração | **n8n** (LangChain Agent node) |
-| LLM | Azure OpenAI (`gpt-5.4-mini`) |
-| Embeddings | Azure OpenAI `text-embedding-3-small` |
-| Vector store | Supabase pgvector (`sameka_documents`) |
-| Auth | Supabase GoTrue (`signInWithPassword`, RPCs admin) |
-| Banco | PostgreSQL (Supabase) — tabela `sameka_chat_message` |
-| Front | HTML + JS vanilla (marked.js, highlight.js, lucide icons, supabase-js) |
-| Hosting front | Netlify (estático) **ou** n8n servindo o HTML (`Sameka-Front.json`) |
+| Dimensão      | Tecnologia                                                                 |
+| ------------- | -------------------------------------------------------------------------- |
+| Orquestração  | **n8n** (LangChain Agent node)                                             |
+| LLM           | Azure OpenAI (`gpt-5.4-mini`)                                              |
+| Embeddings    | Azure OpenAI `text-embedding-3-small`                                      |
+| Vector store  | Supabase pgvector (`sameka_documents`)                                     |
+| Auth          | Supabase GoTrue (`signInWithPassword`, RPCs admin)                         |
+| Banco         | PostgreSQL (Supabase) — tabela `sameka_chat_message`                       |
+| Front         | HTML + JS vanilla (marked.js, highlight.js, lucide icons, supabase-js)     |
+| Hosting front | Netlify (estático) **ou** n8n servindo o HTML (`Sameka-Front.json`)        |
 | APIs externas | Oporttuna (leads/clientes), IBGE (cidades), Google Drive/Sheets (catálogo) |
 
 ---
@@ -100,21 +100,21 @@ Edições de front são feitas **sempre no monolito** `front-sameka.html` e sinc
 
 O front aponta para uma base de webhooks do n8n e para o Supabase (constantes no topo do `<script>` em `front-sameka.html`):
 
-| Constante | Valor | Uso |
-|-----------|-------|-----|
-| `API_BASE` | `https://longflatworm-n8n.cloudfy.live/webhook` | Base dos webhooks n8n |
-| `CHAT_URL` | `${API_BASE}/sameka-AgentRag` | Envia mensagem ao agente |
-| `SESSIONS_URL` | `${API_BASE}/sameka-sessions` | Lista sessões do usuário |
-| `HISTORY_URL` | `${API_BASE}/sameka-history` | Histórico de uma sessão |
-| `DELETE_URL` | `${API_BASE}/sameka-session` | Apaga sessão |
-| `PRUNE_URL` | `${API_BASE}/sameka-prune-history` | Apaga mensagens a partir de um id (editar) |
-| `UPLOAD_URL` | `${API_BASE}/sameka-index-drive` | Sobe doc p/ RAG |
-| `RAG_DOCS_LIST_URL` | `${API_BASE}/sameka-rag-docs` | Lista docs do RAG |
-| `RAG_DOCS_DELETE_URL` | `${API_BASE}/sameka-rag-doc-delete` | Remove doc do RAG |
-| `RAG_PURGE_URL` | `${API_BASE}/sameka-rag-purge-all` | Purga todo o RAG |
-| `HEALTH_URL` | `${API_BASE}/sameka_health` | Healthcheck |
-| `SUPABASE_URL` | `https://longflatworm-supabase.cloudfy.live` | Auth + RPCs |
-| `SUPABASE_ANON_KEY` | (anon, embutida) | Chave pública do front |
+| Constante             | Valor                                           | Uso                                        |
+| --------------------- | ----------------------------------------------- | ------------------------------------------ |
+| `API_BASE`            | `https://longflatworm-n8n.cloudfy.live/webhook` | Base dos webhooks n8n                      |
+| `CHAT_URL`            | `${API_BASE}/sameka-AgentRag`                   | Envia mensagem ao agente                   |
+| `SESSIONS_URL`        | `${API_BASE}/sameka-sessions`                   | Lista sessões do usuário                   |
+| `HISTORY_URL`         | `${API_BASE}/sameka-history`                    | Histórico de uma sessão                    |
+| `DELETE_URL`          | `${API_BASE}/sameka-session`                    | Apaga sessão                               |
+| `PRUNE_URL`           | `${API_BASE}/sameka-prune-history`              | Apaga mensagens a partir de um id (editar) |
+| `UPLOAD_URL`          | `${API_BASE}/sameka-index-drive`                | Sobe doc p/ RAG                            |
+| `RAG_DOCS_LIST_URL`   | `${API_BASE}/sameka-rag-docs`                   | Lista docs do RAG                          |
+| `RAG_DOCS_DELETE_URL` | `${API_BASE}/sameka-rag-doc-delete`             | Remove doc do RAG                          |
+| `RAG_PURGE_URL`       | `${API_BASE}/sameka-rag-purge-all`              | Purga todo o RAG                           |
+| `HEALTH_URL`          | `${API_BASE}/sameka_health`                     | Healthcheck                                |
+| `SUPABASE_URL`        | `https://longflatworm-supabase.cloudfy.live`    | Auth + RPCs                                |
+| `SUPABASE_ANON_KEY`   | (anon, embutida)                                | Chave pública do front                     |
 
 > **Segurança:** apenas a **anon key** pode ficar no front. A `service_role` e a senha do Postgres **nunca** entram no front/Netlify — ficam só nas credenciais do n8n (marcadas como `__FILL_ME__` neste repo).
 
@@ -186,13 +186,13 @@ sameka/
 
 ## Operações comuns
 
-| Tarefa | Onde |
-|--------|------|
-| Mudar o comportamento do agente (prompt) | `workspaces/Sameka-Agent-IA-copy.json` → node **RAG AI Agent** → `parameters.options.systemMessage` |
-| Mudar a UI do chat | `front-sameka.html` (e sincronizar para `netlify/`) |
-| Adicionar/remover doc do RAG | Modal "Documentos" no front (admin) → webhooks `sameka-rag-*` |
-| Criar/editar usuário e território | Modal "Usuários" no front (admin) → RPCs `sameka_admin_*` |
-| Ajustar resolução de cidade (typo/acento) | Subflows `GET-Leads` / `GET-Clientes` (node *Normalizar Input*) + `[Sameka]Consulta IBGE` |
+| Tarefa                                    | Onde                                                                                                |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Mudar o comportamento do agente (prompt)  | `workspaces/Sameka-Agent-IA-copy.json` → node **RAG AI Agent** → `parameters.options.systemMessage` |
+| Mudar a UI do chat                        | `front-sameka.html` (e sincronizar para `netlify/`)                                                 |
+| Adicionar/remover doc do RAG              | Modal "Documentos" no front (admin) → webhooks `sameka-rag-*`                                       |
+| Criar/editar usuário e território         | Modal "Usuários" no front (admin) → RPCs `sameka_admin_*`                                           |
+| Ajustar resolução de cidade (typo/acento) | Subflows `GET-Leads` / `GET-Clientes` (node _Normalizar Input_) + `[Sameka]Consulta IBGE`           |
 
 > **Editar o JSON do agente:** use Node.js (`JSON.parse`/`JSON.stringify`), preservando o BOM e os finais de linha **CRLF** (`\r\n`) do `systemMessage`. `ConvertTo-Json` do PowerShell 5.1 **trava** em arquivos com `[` no nome.
 
