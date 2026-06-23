@@ -14,56 +14,120 @@
         {
           "heading": "O que é o Sameka",
           "blocks": [
-            { "type": "callout", "variant": "info", "title": "Objetivos deste capítulo", "items": [
-              "Entender, em linguagem simples, o que a aplicação faz.",
-              "Conhecer as telas que o usuário final vê.",
-              "Visualizar como as peças (front, n8n, Supabase, IA) se conectam.",
-              "Saber quais serviços externos o projeto realmente usa."
-            ]},
-            { "type": "paragraph", "text": "O **Sameka** é um *copiloto* (assistente de IA) que ajuda vendedores B2B de calçados infantis de couro. O vendedor conversa com o Sameka pelo navegador e recebe um **roteiro de visita**: quais clientes priorizar, o que cada um costuma comprar e quais argumentos usar. Toda a inteligência roda em fluxos no **n8n** (uma ferramenta visual de automação), enquanto o login e o histórico ficam no **Supabase** (banco de dados gerenciado)." },
-            { "type": "paragraph", "text": "Termos que aparecem ao longo do playbook (todos explicados na primeira vez): *workflow* = um fluxo de automação desenhado no n8n; *credential* = uma senha/chave guardada de forma segura dentro do n8n; *webhook* = um endereço (URL) que dispara um workflow; *RAG* = técnica que dá ao robô acesso a documentos (catálogo) para responder com base neles." }
+            {
+              "type": "callout",
+              "variant": "info",
+              "title": "Objetivos deste capítulo",
+              "items": [
+                "Entender, em linguagem simples, o que a aplicação faz.",
+                "Conhecer as telas que o usuário final vê.",
+                "Visualizar como as peças (front, n8n, Supabase, IA) se conectam.",
+                "Saber quais serviços externos o projeto realmente usa."
+              ]
+            },
+            {
+              "type": "paragraph",
+              "text": "O **Sameka** é um *copiloto* (assistente de IA) que ajuda vendedores B2B de calçados infantis de couro. O vendedor conversa com o Sameka pelo navegador e recebe um **roteiro de visita**: quais clientes priorizar, o que cada um costuma comprar e quais argumentos usar. Toda a inteligência roda em fluxos no **n8n** (uma ferramenta visual de automação), enquanto o login e o histórico ficam no **Supabase** (banco de dados gerenciado)."
+            },
+            {
+              "type": "paragraph",
+              "text": "Termos que aparecem ao longo do playbook (todos explicados na primeira vez): *workflow* = um fluxo de automação desenhado no n8n; *credential* = uma senha/chave guardada de forma segura dentro do n8n; *webhook* = um endereço (URL) que dispara um workflow; *RAG* = técnica que dá ao robô acesso a documentos (catálogo) para responder com base neles."
+            }
           ]
         },
         {
           "heading": "O que a aplicação faz, na prática",
           "blocks": [
-            { "type": "paragraph", "text": "Estas são as telas que o usuário final enxerga no navegador:" },
-            { "type": "table", "headers": ["Tela", "O que o usuário faz", "De onde vêm os dados"], "rows": [
-              ["Login", "Digita e-mail e senha da empresa", "Supabase Auth (GoTrue)"],
-              ["Lista de conversas (sidebar)", "Abre conversas antigas ou cria nova", "Postgres (tabela de histórico)"],
-              ["Chat do copiloto", "Faz perguntas e pede roteiros de visita", "Workflow principal no n8n + IA"],
-              ["Roteiro de visita", "Recebe lista de clientes priorizados", "API Oporttuna + catálogo (RAG)"],
-              ["Painel admin", "Cria/edita usuários da empresa", "Funções RPC no Supabase"]
-            ]},
-            { "type": "screenshot", "path": "00-front-login.png", "caption": "Tela de login do Sameka no navegador." },
-            { "type": "screenshot", "path": "00-front-chat.png", "caption": "Chat do copiloto com a lista de conversas à esquerda." }
+            {
+              "type": "paragraph",
+              "text": "Estas são as telas que o usuário final enxerga no navegador:"
+            },
+            {
+              "type": "table",
+              "headers": [
+                "Tela",
+                "O que o usuário faz",
+                "De onde vêm os dados"
+              ],
+              "rows": [
+                [
+                  "Login",
+                  "Digita e-mail e senha da empresa",
+                  "Supabase Auth (GoTrue)"
+                ],
+                [
+                  "Lista de conversas (sidebar)",
+                  "Abre conversas antigas ou cria nova",
+                  "Postgres (tabela de histórico)"
+                ],
+                [
+                  "Chat do copiloto",
+                  "Faz perguntas e pede roteiros de visita",
+                  "Workflow principal no n8n + IA"
+                ],
+                [
+                  "Roteiro de visita",
+                  "Recebe lista de clientes priorizados",
+                  "API Oporttuna + catálogo (RAG)"
+                ],
+                [
+                  "Painel admin",
+                  "Cria/edita usuários da empresa",
+                  "Funções RPC no Supabase"
+                ]
+              ]
+            },
+            {
+              "type": "screenshot",
+              "path": "00-front-login.png",
+              "caption": "Tela de login do Sameka no navegador."
+            },
+            {
+              "type": "screenshot",
+              "path": "00-front-chat.png",
+              "caption": "Chat do copiloto com a lista de conversas à esquerda."
+            }
           ]
         },
         {
           "heading": "Como as peças se conectam",
           "blocks": [
-            { "type": "diagram", "alt": "Arquitetura de alto nível", "lines": [
-              "Navegador (front-sameka.html)",
-              "   -> Supabase Auth: valida login (e-mail + senha)",
-              "   -> Webhook n8n: envia a pergunta do vendedor",
-              "n8n (workflow principal / LangChain Agent)",
-              "   -> Azure OpenAI: gera a resposta",
-              "   -> API Oporttuna: busca leads e carteira",
-              "   -> RAG (pgvector + Google Drive): consulta catálogo",
-              "   -> Postgres: grava o histórico da conversa",
-              "Resposta volta ao navegador"
-            ]},
-            { "type": "callout", "variant": "info", "title": "Serviços que ESTE projeto usa", "items": [
-              "Cloudfy — hospeda n8n e Supabase (painel de infraestrutura).",
-              "n8n — orquestra todos os fluxos de automação.",
-              "Supabase / Postgres — login, histórico e RAG (pgvector).",
-              "Azure OpenAI — modelo de chat e geração de embeddings.",
-              "Google Drive / Sheets — catálogo de produtos e imagens.",
-              "API Oporttuna — fonte de leads e carteira de clientes."
-            ]},
-            { "type": "callout", "variant": "warning", "title": "Serviços que NÃO entram", "items": [
-              "Redis, MongoDB e Outlook estão fora: nenhum workflow do Sameka os utiliza. Se aparecerem provisionados no Cloudfy, não exigem configuração."
-            ]}
+            {
+              "type": "diagram",
+              "alt": "Arquitetura de alto nível",
+              "lines": [
+                "Navegador (front-sameka.html)",
+                "   -> Supabase Auth: valida login (e-mail + senha)",
+                "   -> Webhook n8n: envia a pergunta do vendedor",
+                "n8n (workflow principal / LangChain Agent)",
+                "   -> Azure OpenAI: gera a resposta",
+                "   -> API Oporttuna: busca leads e carteira",
+                "   -> RAG (pgvector + Google Drive): consulta catálogo",
+                "   -> Postgres: grava o histórico da conversa",
+                "Resposta volta ao navegador"
+              ]
+            },
+            {
+              "type": "callout",
+              "variant": "info",
+              "title": "Serviços que ESTE projeto usa",
+              "items": [
+                "Cloudfy — hospeda n8n e Supabase (painel de infraestrutura).",
+                "n8n — orquestra todos os fluxos de automação.",
+                "Supabase / Postgres — login, histórico e RAG (pgvector).",
+                "Azure OpenAI — modelo de chat e geração de embeddings.",
+                "Google Drive / Sheets — catálogo de produtos e imagens.",
+                "API Oporttuna — fonte de leads e carteira de clientes."
+              ]
+            },
+            {
+              "type": "callout",
+              "variant": "warning",
+              "title": "Serviços que NÃO entram",
+              "items": [
+                "Redis, MongoDB e Outlook estão fora: nenhum workflow do Sameka os utiliza. Se aparecerem provisionados no Cloudfy, não exigem configuração."
+              ]
+            }
           ]
         }
       ]
@@ -75,20 +139,47 @@
         {
           "heading": "Entrar no painel",
           "blocks": [
-            { "type": "callout", "variant": "info", "title": "Objetivos deste capítulo", "items": [
-              "Acessar o painel Cloudfy que hospeda n8n e Supabase.",
-              "Localizar os serviços do projeto.",
-              "Saber abrir o n8n e o Supabase Studio a partir do Cloudfy."
-            ]},
-            { "type": "callout", "variant": "warning", "title": "Pré-requisitos", "items": [
-              "Login e senha do Cloudfy entregues pela equipe de transição.",
-              "Navegador atualizado (Chrome ou Edge recomendados)."
-            ]},
-            { "type": "steps", "items": [
-              { "action": "Abra o endereço da sua instância Cloudfy e clique em **Entrar**.", "where": "Barra de endereço do navegador → `https://<SUA-INSTANCIA>.cloudfy.space`", "expect": "Aparece a tela de login com campos de e-mail e senha.", "screenshot": "01-cloudfy-login.png" },
-              { "action": "Digite e-mail e senha do Cloudfy e confirme.", "where": "Formulário central de login", "expect": "Você cai no painel principal com os cartões dos serviços (n8n, Supabase, etc.)." },
-              { "action": "Localize o cartão de **Serviços** para ver tudo que está provisionado.", "where": "Menu lateral esquerdo → **Serviços**", "expect": "Lista de containers/serviços ativos, cada um com botão de abrir.", "screenshot": "01-cloudfy-servicos.png" }
-            ]}
+            {
+              "type": "callout",
+              "variant": "info",
+              "title": "Objetivos deste capítulo",
+              "items": [
+                "Acessar o painel Cloudfy que hospeda n8n e Supabase.",
+                "Localizar os serviços do projeto.",
+                "Saber abrir o n8n e o Supabase Studio a partir do Cloudfy."
+              ]
+            },
+            {
+              "type": "callout",
+              "variant": "warning",
+              "title": "Pré-requisitos",
+              "items": [
+                "Login e senha do Cloudfy entregues pela equipe de transição.",
+                "Navegador atualizado (Chrome ou Edge recomendados)."
+              ]
+            },
+            {
+              "type": "steps",
+              "items": [
+                {
+                  "action": "Abra o endereço da sua instância Cloudfy e clique em **Entrar**.",
+                  "where": "Barra de endereço do navegador → `https://<SUA-INSTANCIA>.cloudfy.space`",
+                  "expect": "Aparece a tela de login com campos de e-mail e senha.",
+                  "screenshot": "01-cloudfy-login.png"
+                },
+                {
+                  "action": "Digite e-mail e senha do Cloudfy e confirme.",
+                  "where": "Formulário central de login",
+                  "expect": "Você cai no painel principal com os cartões dos serviços (n8n, Supabase, etc.)."
+                },
+                {
+                  "action": "Localize o cartão de **Serviços** para ver tudo que está provisionado.",
+                  "where": "Menu lateral esquerdo → **Serviços**",
+                  "expect": "Lista de containers/serviços ativos, cada um com botão de abrir.",
+                  "screenshot": "01-cloudfy-servicos.png"
+                }
+              ]
+            }
           ]
         }
       ]
@@ -100,52 +191,112 @@
         {
           "heading": "Abrir o Supabase Studio",
           "blocks": [
-            { "type": "callout", "variant": "info", "title": "Objetivos deste capítulo", "items": [
-              "Entender como funciona o login multi-empresa (multitenant).",
-              "Criar o primeiro usuário administrador.",
-              "Garantir que o admin consiga entrar no Sameka."
-            ]},
-            { "type": "callout", "variant": "warning", "title": "Pré-requisitos", "items": [
-              "Acesso ao Supabase Studio pelo Cloudfy.",
-              "Migrations já aplicadas (ver capítulo 03)."
-            ]},
-            { "type": "steps", "items": [
-              { "action": "Abra o **Supabase Studio** da instância.", "where": "Cloudfy → Serviços → Supabase → botão **Abrir**", "expect": "O painel do Supabase carrega com o menu lateral (Table Editor, Authentication, SQL Editor).", "screenshot": "02-supabase-home.png" }
-            ]}
+            {
+              "type": "callout",
+              "variant": "info",
+              "title": "Objetivos deste capítulo",
+              "items": [
+                "Entender como funciona o login multi-empresa (multitenant).",
+                "Criar o primeiro usuário administrador.",
+                "Garantir que o admin consiga entrar no Sameka."
+              ]
+            },
+            {
+              "type": "callout",
+              "variant": "warning",
+              "title": "Pré-requisitos",
+              "items": [
+                "Acesso ao Supabase Studio pelo Cloudfy.",
+                "Migrations já aplicadas (ver capítulo 03)."
+              ]
+            },
+            {
+              "type": "steps",
+              "items": [
+                {
+                  "action": "Abra o **Supabase Studio** da instância.",
+                  "where": "Cloudfy → Serviços → Supabase → botão **Abrir**",
+                  "expect": "O painel do Supabase carrega com o menu lateral (Table Editor, Authentication, SQL Editor).",
+                  "screenshot": "02-supabase-home.png"
+                }
+              ]
+            }
           ]
         },
         {
           "heading": "Como o login multi-empresa funciona",
           "blocks": [
-            { "type": "paragraph", "text": "O Sameka separa empresas por uma chave chamada `company_name`. Cada usuário guarda essa chave nos seus metadados (`raw_user_meta_data`). O front-end só deixa entrar quem tiver `company_name` igual à constante configurada no arquivo `front-sameka.html`." },
-            { "type": "callout", "variant": "danger", "title": "Atenção — o valor precisa casar exatamente", "items": [
-              "No front: `const ... company_name: \"sameka\"`.",
-              "No usuário do Supabase: `raw_user_meta_data->>'company_name' = 'sameka'`.",
-              "É *case-sensitive*: `Sameka` ≠ `sameka`. Se divergir, o login falha (ver capítulo 07)."
-            ]}
+            {
+              "type": "paragraph",
+              "text": "O Sameka separa empresas por uma chave chamada `company_name`. Cada usuário guarda essa chave nos seus metadados (`raw_user_meta_data`). O front-end só deixa entrar quem tiver `company_name` igual à constante configurada no arquivo `front-sameka.html`."
+            },
+            {
+              "type": "callout",
+              "variant": "danger",
+              "title": "Atenção — o valor precisa casar exatamente",
+              "items": [
+                "No front: `const ... company_name: \"sameka\"`.",
+                "No usuário do Supabase: `raw_user_meta_data->>'company_name' = 'sameka'`.",
+                "É *case-sensitive*: `Sameka` ≠ `sameka`. Se divergir, o login falha (ver capítulo 07)."
+              ]
+            }
           ]
         },
         {
           "heading": "Convenção padrão de bootstrap (primeiro admin)",
           "blocks": [
-            { "type": "paragraph", "text": "O primeiro administrador é criado pela API de autenticação (GoTrue), não por SQL direto. Use as credenciais-padrão abaixo e troque a senha após o primeiro acesso." },
-            { "type": "table", "headers": ["Campo", "Valor padrão"], "rows": [
-              ["E-mail", "admin@sameka.com.br"],
-              ["Senha inicial", "@Admin123"],
-              ["full_name", "Administrador"],
-              ["role", "admin"],
-              ["company_name", "sameka"]
-            ]},
-            { "type": "paragraph", "text": "Passo 1 — criar o usuário via API de signup (substitua os placeholders pelos valores reais da sua instância):" },
-            { "type": "code", "lang": "bash", "text": "curl -X POST 'https://<SUA-INSTANCIA>-supabase.cloudfy.live/auth/v1/signup' \\\n  -H 'apikey: <SUPABASE_ANON_KEY>' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"email\": \"admin@sameka.com.br\",\n    \"password\": \"@Admin123\",\n    \"data\": { \"full_name\": \"Administrador\", \"role\": \"admin\", \"company_name\": \"sameka\" }\n  }'" },
-            { "type": "paragraph", "text": "Passo 2 — confirmar o e-mail e gravar os metadados de admin. Abra o **SQL Editor** (ícone `>_` no menu lateral esquerdo do Supabase) e rode:" },
-            { "type": "code", "lang": "sql", "text": "UPDATE auth.users\nSET email_confirmed_at = now(),\n    raw_user_meta_data = raw_user_meta_data || '{\"role\": \"admin\", \"company_name\": \"sameka\"}'::jsonb\nWHERE email = 'admin@sameka.com.br';" },
-            { "type": "callout", "variant": "warning", "title": "Confirmação de e-mail", "items": [
-              "Sem `email_confirmed_at` preenchido, o login fica bloqueado aguardando verificação. O UPDATE acima resolve isso de uma vez."
-            ]},
-            { "type": "steps", "items": [
-              { "action": "Confira o usuário recém-criado na lista de autenticação.", "where": "Supabase → **Authentication** → aba **Users**", "expect": "Aparece a linha com `admin@sameka.com.br` e a coluna de confirmação preenchida.", "screenshot": "02-supabase-users.png" }
-            ]}
+            {
+              "type": "paragraph",
+              "text": "O primeiro administrador é criado pela API de autenticação (GoTrue), não por SQL direto. Use as credenciais-padrão abaixo e troque a senha após o primeiro acesso."
+            },
+            {
+              "type": "table",
+              "headers": ["Campo", "Valor padrão"],
+              "rows": [
+                ["E-mail", "admin@sameka.com.br"],
+                ["Senha inicial", "@Admin123"],
+                ["full_name", "Administrador"],
+                ["role", "admin"],
+                ["company_name", "sameka"]
+              ]
+            },
+            {
+              "type": "paragraph",
+              "text": "Passo 1 — criar o usuário via API de signup (substitua os placeholders pelos valores reais da sua instância):"
+            },
+            {
+              "type": "code",
+              "lang": "bash",
+              "text": "curl -X POST 'https://<SUA-INSTANCIA>-supabase.cloudfy.live/auth/v1/signup' \\\n  -H 'apikey: <SUPABASE_ANON_KEY>' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    \"email\": \"admin@sameka.com.br\",\n    \"password\": \"@Admin123\",\n    \"data\": { \"full_name\": \"Administrador\", \"role\": \"admin\", \"company_name\": \"sameka\" }\n  }'"
+            },
+            {
+              "type": "paragraph",
+              "text": "Passo 2 — confirmar o e-mail e gravar os metadados de admin. Abra o **SQL Editor** (ícone `>_` no menu lateral esquerdo do Supabase) e rode:"
+            },
+            {
+              "type": "code",
+              "lang": "sql",
+              "text": "UPDATE auth.users\nSET email_confirmed_at = now(),\n    raw_user_meta_data = raw_user_meta_data || '{\"role\": \"admin\", \"company_name\": \"sameka\"}'::jsonb\nWHERE email = 'admin@sameka.com.br';"
+            },
+            {
+              "type": "callout",
+              "variant": "warning",
+              "title": "Confirmação de e-mail",
+              "items": [
+                "Sem `email_confirmed_at` preenchido, o login fica bloqueado aguardando verificação. O UPDATE acima resolve isso de uma vez."
+              ]
+            },
+            {
+              "type": "steps",
+              "items": [
+                {
+                  "action": "Confira o usuário recém-criado na lista de autenticação.",
+                  "where": "Supabase → **Authentication** → aba **Users**",
+                  "expect": "Aparece a linha com `admin@sameka.com.br` e a coluna de confirmação preenchida.",
+                  "screenshot": "02-supabase-users.png"
+                }
+              ]
+            }
           ]
         }
       ]
@@ -157,35 +308,96 @@
         {
           "heading": "O que são as migrations",
           "blocks": [
-            { "type": "callout", "variant": "info", "title": "Objetivos deste capítulo", "items": [
-              "Entender o papel das migrations SQL.",
-              "Saber a ordem correta de aplicação.",
-              "Aplicar tudo pelo SQL Editor do Supabase."
-            ]},
-            { "type": "paragraph", "text": "*Migration* é um arquivo SQL versionado que cria/altera tabelas e funções. Aplicar na ordem garante que o banco fique no estado esperado. As funções usam `SECURITY DEFINER` (rodam com o dono da função) e cada arquivo termina com `NOTIFY pgrst` para recarregar a API." },
-            { "type": "table", "headers": ["Ordem", "Arquivo", "Para que serve"], "rows": [
-              ["1", "001_user_crud_functions.sql", "Funções de criar/listar/editar/excluir usuários"],
-              ["2", "002_add_roles.sql", "Papéis (admin, visualizador)"],
-              ["3", "003_admin_guards.sql", "Proteções: só admin executa ações sensíveis"],
-              ["4", "004_add_company_name.sql", "Filtro multi-empresa por company_name"],
-              ["5", "005_add_coverage_areas.sql", "Áreas de cobertura por usuário"],
-              ["6", "006_prevent_self_delete.sql", "Impede admin de se autoexcluir"],
-              ["7", "007_add_user_to_chat.sql", "Vincula histórico de chat ao usuário"],
-              ["8", "008_backfill_user_id.sql", "Preenche user_id em registros antigos"]
-            ]}
+            {
+              "type": "callout",
+              "variant": "info",
+              "title": "Objetivos deste capítulo",
+              "items": [
+                "Entender o papel das migrations SQL.",
+                "Saber a ordem correta de aplicação.",
+                "Aplicar tudo pelo SQL Editor do Supabase."
+              ]
+            },
+            {
+              "type": "paragraph",
+              "text": "*Migration* é um arquivo SQL versionado que cria/altera tabelas e funções. Aplicar na ordem garante que o banco fique no estado esperado. As funções usam `SECURITY DEFINER` (rodam com o dono da função) e cada arquivo termina com `NOTIFY pgrst` para recarregar a API."
+            },
+            {
+              "type": "table",
+              "headers": ["Ordem", "Arquivo", "Para que serve"],
+              "rows": [
+                [
+                  "1",
+                  "001_user_crud_functions.sql",
+                  "Funções de criar/listar/editar/excluir usuários"
+                ],
+                ["2", "002_add_roles.sql", "Papéis (admin, visualizador)"],
+                [
+                  "3",
+                  "003_admin_guards.sql",
+                  "Proteções: só admin executa ações sensíveis"
+                ],
+                [
+                  "4",
+                  "004_add_company_name.sql",
+                  "Filtro multi-empresa por company_name"
+                ],
+                [
+                  "5",
+                  "005_add_coverage_areas.sql",
+                  "Áreas de cobertura por usuário"
+                ],
+                [
+                  "6",
+                  "006_prevent_self_delete.sql",
+                  "Impede admin de se autoexcluir"
+                ],
+                [
+                  "7",
+                  "007_add_user_to_chat.sql",
+                  "Vincula histórico de chat ao usuário"
+                ],
+                [
+                  "8",
+                  "008_backfill_user_id.sql",
+                  "Preenche user_id em registros antigos"
+                ]
+              ]
+            }
           ]
         },
         {
           "heading": "Aplicar as migrations",
           "blocks": [
-            { "type": "steps", "items": [
-              { "action": "Abra o editor SQL.", "where": "Supabase → **SQL Editor** (ícone `>_`)", "expect": "Área de texto vazia pronta para colar SQL.", "screenshot": "03-supabase-sql-editor.png" },
-              { "action": "Cole o conteúdo de cada arquivo na ordem da tabela e clique em **Run**.", "where": "Botão **Run** no canto inferior direito do editor", "expect": "Mensagem **Success. No rows returned** (ou equivalente) a cada execução." },
-              { "action": "Repita até a migration 008.", "where": "SQL Editor", "expect": "Nenhum erro vermelho; funções e colunas criadas." }
-            ]},
-            { "type": "callout", "variant": "danger", "title": "Nunca use CASCADE destrutivo", "items": [
-              "Não rode `DROP ... CASCADE` nem `ON DELETE CASCADE` apontando para `auth.users`. Isso pode apagar usuários em cadeia."
-            ]}
+            {
+              "type": "steps",
+              "items": [
+                {
+                  "action": "Abra o editor SQL.",
+                  "where": "Supabase → **SQL Editor** (ícone `>_`)",
+                  "expect": "Área de texto vazia pronta para colar SQL.",
+                  "screenshot": "03-supabase-sql-editor.png"
+                },
+                {
+                  "action": "Cole o conteúdo de cada arquivo na ordem da tabela e clique em **Run**.",
+                  "where": "Botão **Run** no canto inferior direito do editor",
+                  "expect": "Mensagem **Success. No rows returned** (ou equivalente) a cada execução."
+                },
+                {
+                  "action": "Repita até a migration 008.",
+                  "where": "SQL Editor",
+                  "expect": "Nenhum erro vermelho; funções e colunas criadas."
+                }
+              ]
+            },
+            {
+              "type": "callout",
+              "variant": "danger",
+              "title": "Nunca use CASCADE destrutivo",
+              "items": [
+                "Não rode `DROP ... CASCADE` nem `ON DELETE CASCADE` apontando para `auth.users`. Isso pode apagar usuários em cadeia."
+              ]
+            }
           ]
         }
       ]
@@ -197,50 +409,121 @@
         {
           "heading": "Abrir o n8n e importar os workflows",
           "blocks": [
-            { "type": "callout", "variant": "info", "title": "Objetivos deste capítulo", "items": [
-              "Acessar o n8n pelo Cloudfy.",
-              "Importar os workflows do Sameka.",
-              "Preencher as credenciais sem expor segredos."
-            ]},
-            { "type": "callout", "variant": "warning", "title": "Pré-requisitos", "items": [
-              "Arquivos JSON da pasta `workspaces/`.",
-              "Chaves do Azure OpenAI e OAuth do Google em mãos (ver tabelas abaixo)."
-            ]},
-            { "type": "steps", "items": [
-              { "action": "Abra o **n8n**.", "where": "Cloudfy → Serviços → n8n → **Abrir**", "expect": "Tela inicial do n8n com a lista de **Workflows**.", "screenshot": "04-n8n-home.png" },
-              { "action": "Importe cada arquivo JSON.", "where": "Botão **+** (canto superior direito) → **Import from File**", "expect": "O workflow aparece no canvas com seus nós conectados.", "screenshot": "04-n8n-import.png" }
-            ]}
+            {
+              "type": "callout",
+              "variant": "info",
+              "title": "Objetivos deste capítulo",
+              "items": [
+                "Acessar o n8n pelo Cloudfy.",
+                "Importar os workflows do Sameka.",
+                "Preencher as credenciais sem expor segredos."
+              ]
+            },
+            {
+              "type": "callout",
+              "variant": "warning",
+              "title": "Pré-requisitos",
+              "items": [
+                "Arquivos JSON da pasta `workspaces/`.",
+                "Chaves do Azure OpenAI e OAuth do Google em mãos (ver tabelas abaixo)."
+              ]
+            },
+            {
+              "type": "steps",
+              "items": [
+                {
+                  "action": "Abra o **n8n**.",
+                  "where": "Cloudfy → Serviços → n8n → **Abrir**",
+                  "expect": "Tela inicial do n8n com a lista de **Workflows**.",
+                  "screenshot": "04-n8n-home.png"
+                },
+                {
+                  "action": "Importe cada arquivo JSON.",
+                  "where": "Botão **+** (canto superior direito) → **Import from File**",
+                  "expect": "O workflow aparece no canvas com seus nós conectados.",
+                  "screenshot": "04-n8n-import.png"
+                }
+              ]
+            }
           ]
         },
         {
           "heading": "Workflows do Sameka",
           "blocks": [
-            { "type": "table", "headers": ["Workflow", "Função"], "rows": [
-              ["Sameka-Agent-IA-copy", "Agente principal (LangChain) que responde no chat"],
-              ["Sameka-RAG", "Indexa e consulta o catálogo (pgvector)"],
-              ["Sameka-Front", "Serve/integra o front-end"],
-              ["Sameka-Chat-GET-History / Sessions", "Lê histórico e sessões do usuário"],
-              ["Sameka-Chat-DELETE-Session", "Remove uma conversa"],
-              ["[Sameka] GET-Leads", "Busca prospects na API Oporttuna (HMG)"],
-              ["[Sameka] GET-Clientes", "Busca carteira ativa na API Oporttuna (PROD)"],
-              ["[Sameka] Consulta IBGE", "Valida e normaliza cidade/UF"]
-            ]}
+            {
+              "type": "table",
+              "headers": ["Workflow", "Função"],
+              "rows": [
+                [
+                  "Sameka-Agent-IA-copy",
+                  "Agente principal (LangChain) que responde no chat"
+                ],
+                ["Sameka-RAG", "Indexa e consulta o catálogo (pgvector)"],
+                ["Sameka-Front", "Serve/integra o front-end"],
+                [
+                  "Sameka-Chat-GET-History / Sessions",
+                  "Lê histórico e sessões do usuário"
+                ],
+                ["Sameka-Chat-DELETE-Session", "Remove uma conversa"],
+                [
+                  "[Sameka] GET-Leads",
+                  "Busca prospects na API Oporttuna (HMG)"
+                ],
+                [
+                  "[Sameka] GET-Clientes",
+                  "Busca carteira ativa na API Oporttuna (PROD)"
+                ],
+                ["[Sameka] Consulta IBGE", "Valida e normaliza cidade/UF"]
+              ]
+            }
           ]
         },
         {
           "heading": "Credenciais — onde achar e onde colar",
           "blocks": [
-            { "type": "paragraph", "text": "Cada *credential* guarda uma chave de forma segura dentro do n8n. Preencha em **Credentials** (menu lateral esquerdo do n8n)." },
-            { "type": "table", "headers": ["Credencial", "Onde achar o valor", "Onde colar no n8n"], "rows": [
-              ["Azure OpenAI", "Portal Azure → recurso OpenAI → Keys and Endpoint", "Credentials → Azure OpenAI → API Key + Endpoint + Deployment"],
-              ["Postgres (Supabase)", "Cloudfy → Supabase → Connection / Database settings", "Credentials → Postgres → host, port, db, user, senha"],
-              ["Google Drive/Sheets", "Google Cloud Console → APIs & Services → Credentials (OAuth)", "Credentials → Google OAuth2 → Client ID + Secret + Redirect"]
-            ]},
-            { "type": "callout", "variant": "danger", "title": "Nunca cole segredos no front-end", "items": [
-              "`SUPABASE_SERVICE_ROLE_KEY`, senha do Postgres e tokens longos ficam SÓ no n8n.",
-              "No `front-sameka.html` use apenas a `anon key` pública. Onde não souber o valor, use `__FILL_ME__`."
-            ]},
-            { "type": "screenshot", "path": "04-n8n-credential-azure.png", "caption": "Formulário de credencial do Azure OpenAI (campos sensíveis mascarados)." }
+            {
+              "type": "paragraph",
+              "text": "Cada *credential* guarda uma chave de forma segura dentro do n8n. Preencha em **Credentials** (menu lateral esquerdo do n8n)."
+            },
+            {
+              "type": "table",
+              "headers": [
+                "Credencial",
+                "Onde achar o valor",
+                "Onde colar no n8n"
+              ],
+              "rows": [
+                [
+                  "Azure OpenAI",
+                  "Portal Azure → recurso OpenAI → Keys and Endpoint",
+                  "Credentials → Azure OpenAI → API Key + Endpoint + Deployment"
+                ],
+                [
+                  "Postgres (Supabase)",
+                  "Cloudfy → Supabase → Connection / Database settings",
+                  "Credentials → Postgres → host, port, db, user, senha"
+                ],
+                [
+                  "Google Drive/Sheets",
+                  "Google Cloud Console → APIs & Services → Credentials (OAuth)",
+                  "Credentials → Google OAuth2 → Client ID + Secret + Redirect"
+                ]
+              ]
+            },
+            {
+              "type": "callout",
+              "variant": "danger",
+              "title": "Nunca cole segredos no front-end",
+              "items": [
+                "`SUPABASE_SERVICE_ROLE_KEY`, senha do Postgres e tokens longos ficam SÓ no n8n.",
+                "No `front-sameka.html` use apenas a `anon key` pública. Onde não souber o valor, use `__FILL_ME__`."
+              ]
+            },
+            {
+              "type": "screenshot",
+              "path": "04-n8n-credential-azure.png",
+              "caption": "Formulário de credencial do Azure OpenAI (campos sensíveis mascarados)."
+            }
           ]
         }
       ]
@@ -252,31 +535,79 @@
         {
           "heading": "Publicar o front",
           "blocks": [
-            { "type": "callout", "variant": "info", "title": "Objetivos deste capítulo", "items": [
-              "Entender o front (monolito + split Netlify).",
-              "Configurar as URLs de Supabase e webhook.",
-              "Validar o sistema ponta a ponta (smoke test)."
-            ]},
-            { "type": "paragraph", "text": "O front existe em duas formas: `front-sameka.html` (monolito, fonte da verdade) e a pasta `netlify/` (versão dividida para hospedagem estática). Edite sempre o monolito e gere o split — nunca o contrário." },
-            { "type": "steps", "items": [
-              { "action": "Confirme a URL do Supabase e a `anon key` no topo do front.", "where": "`front-sameka.html` → bloco de configuração JS", "expect": "Valores apontando para a instância correta; nenhum service role key presente." },
-              { "action": "Confirme a constante `company_name`.", "where": "`front-sameka.html` (≈ linha 7018)", "expect": "`company_name: \"sameka\"` — igual ao metadado dos usuários." },
-              { "action": "Publique no Netlify (ou hosting estático escolhido).", "where": "Netlify → Deploys → arraste a pasta `netlify/`", "expect": "Deploy concluído e URL pública acessível." }
-            ]}
+            {
+              "type": "callout",
+              "variant": "info",
+              "title": "Objetivos deste capítulo",
+              "items": [
+                "Entender o front (monolito + split Netlify).",
+                "Configurar as URLs de Supabase e webhook.",
+                "Validar o sistema ponta a ponta (smoke test)."
+              ]
+            },
+            {
+              "type": "paragraph",
+              "text": "O front existe em duas formas: `front-sameka.html` (monolito, fonte da verdade) e a pasta `netlify/` (versão dividida para hospedagem estática). Edite sempre o monolito e gere o split — nunca o contrário."
+            },
+            {
+              "type": "steps",
+              "items": [
+                {
+                  "action": "Confirme a URL do Supabase e a `anon key` no topo do front.",
+                  "where": "`front-sameka.html` → bloco de configuração JS",
+                  "expect": "Valores apontando para a instância correta; nenhum service role key presente."
+                },
+                {
+                  "action": "Confirme a constante `company_name`.",
+                  "where": "`front-sameka.html` (≈ linha 7018)",
+                  "expect": "`company_name: \"sameka\"` — igual ao metadado dos usuários."
+                },
+                {
+                  "action": "Publique no Netlify (ou hosting estático escolhido).",
+                  "where": "Netlify → Deploys → arraste a pasta `netlify/`",
+                  "expect": "Deploy concluído e URL pública acessível."
+                }
+              ]
+            }
           ]
         },
         {
           "heading": "Smoke test (validação ponta a ponta)",
           "blocks": [
-            { "type": "steps", "items": [
-              { "action": "Acesse a URL pública e faça login com o admin.", "where": "Tela de login → `admin@sameka.com.br` / `@Admin123`", "expect": "Entra direto no chat, sem erro de empresa.", "screenshot": "05-smoke-login.png" },
-              { "action": "Envie uma pergunta simples ao copiloto.", "where": "Campo de mensagem do chat", "expect": "Resposta gerada pela IA em poucos segundos." },
-              { "action": "Peça um roteiro de visita para uma cidade.", "where": "Chat", "expect": "Lista de clientes priorizados (dados Oporttuna)." },
-              { "action": "Atualize a página e reabra a conversa.", "where": "Sidebar → lista de conversas", "expect": "Histórico preservado (gravado no Postgres)." }
-            ]},
-            { "type": "callout", "variant": "info", "title": "Tudo verde?", "items": [
-              "Login + resposta da IA + roteiro + histórico funcionando = transferência validada."
-            ]}
+            {
+              "type": "steps",
+              "items": [
+                {
+                  "action": "Acesse a URL pública e faça login com o admin.",
+                  "where": "Tela de login → `admin@sameka.com.br` / `@Admin123`",
+                  "expect": "Entra direto no chat, sem erro de empresa.",
+                  "screenshot": "05-smoke-login.png"
+                },
+                {
+                  "action": "Envie uma pergunta simples ao copiloto.",
+                  "where": "Campo de mensagem do chat",
+                  "expect": "Resposta gerada pela IA em poucos segundos."
+                },
+                {
+                  "action": "Peça um roteiro de visita para uma cidade.",
+                  "where": "Chat",
+                  "expect": "Lista de clientes priorizados (dados Oporttuna)."
+                },
+                {
+                  "action": "Atualize a página e reabra a conversa.",
+                  "where": "Sidebar → lista de conversas",
+                  "expect": "Histórico preservado (gravado no Postgres)."
+                }
+              ]
+            },
+            {
+              "type": "callout",
+              "variant": "info",
+              "title": "Tudo verde?",
+              "items": [
+                "Login + resposta da IA + roteiro + histórico funcionando = transferência validada."
+              ]
+            }
           ]
         }
       ]
@@ -288,21 +619,46 @@
         {
           "heading": "Como o catálogo alimenta a IA",
           "blocks": [
-            { "type": "callout", "variant": "info", "title": "Objetivos deste capítulo", "items": [
-              "Entender o que é RAG e por que o catálogo importa.",
-              "Manter a identidade estável dos arquivos no Drive.",
-              "Reindexar quando o catálogo mudar."
-            ]},
-            { "type": "paragraph", "text": "*RAG* (Retrieval-Augmented Generation) dá ao copiloto acesso ao catálogo: o conteúdo é transformado em *embeddings* (vetores numéricos) guardados no `pgvector`. Quando o vendedor pergunta sobre um produto, o Sameka busca os trechos mais parecidos e responde com base neles." },
-            { "type": "callout", "variant": "danger", "title": "Identidade estável do arquivo", "items": [
-              "Os documentos ficam numa pasta dedicada no Drive (`DRIVE_FOLDER_ID_RAG`).",
-              "Para atualizar, use `files.update` no MESMO `file_id` — nunca apague e recrie. O `file_id` jamais muda.",
-              "Nunca chame `files.delete` em nenhum workflow."
-            ]},
-            { "type": "steps", "items": [
-              { "action": "Abra o workflow de indexação.", "where": "n8n → Workflows → **Sameka-RAG**", "expect": "Canvas com os nós de leitura do Drive, geração de embeddings e gravação no pgvector.", "screenshot": "06-n8n-rag.png" },
-              { "action": "Confirme o `folder_id` da pasta de RAG.", "where": "Nó do Google Drive → parâmetro de pasta", "expect": "Aponta para a pasta dedicada do catálogo (placeholder `__FILL_ME__DRIVE_FOLDER_ID_RAG__` se ainda não configurado)." }
-            ]}
+            {
+              "type": "callout",
+              "variant": "info",
+              "title": "Objetivos deste capítulo",
+              "items": [
+                "Entender o que é RAG e por que o catálogo importa.",
+                "Manter a identidade estável dos arquivos no Drive.",
+                "Reindexar quando o catálogo mudar."
+              ]
+            },
+            {
+              "type": "paragraph",
+              "text": "*RAG* (Retrieval-Augmented Generation) dá ao copiloto acesso ao catálogo: o conteúdo é transformado em *embeddings* (vetores numéricos) guardados no `pgvector`. Quando o vendedor pergunta sobre um produto, o Sameka busca os trechos mais parecidos e responde com base neles."
+            },
+            {
+              "type": "callout",
+              "variant": "danger",
+              "title": "Identidade estável do arquivo",
+              "items": [
+                "Os documentos ficam numa pasta dedicada no Drive (`DRIVE_FOLDER_ID_RAG`).",
+                "Para atualizar, use `files.update` no MESMO `file_id` — nunca apague e recrie. O `file_id` jamais muda.",
+                "Nunca chame `files.delete` em nenhum workflow."
+              ]
+            },
+            {
+              "type": "steps",
+              "items": [
+                {
+                  "action": "Abra o workflow de indexação.",
+                  "where": "n8n → Workflows → **Sameka-RAG**",
+                  "expect": "Canvas com os nós de leitura do Drive, geração de embeddings e gravação no pgvector.",
+                  "screenshot": "06-n8n-rag.png"
+                },
+                {
+                  "action": "Confirme o `folder_id` da pasta de RAG.",
+                  "where": "Nó do Google Drive → parâmetro de pasta",
+                  "expect": "Aponta para a pasta dedicada do catálogo (placeholder `__FILL_ME__DRIVE_FOLDER_ID_RAG__` se ainda não configurado)."
+                }
+              ]
+            }
           ]
         }
       ]
@@ -314,21 +670,55 @@
         {
           "heading": "Problemas comuns e como resolver",
           "blocks": [
-            { "type": "callout", "variant": "info", "title": "Objetivos deste capítulo", "items": [
-              "Diagnosticar os erros mais frequentes.",
-              "Saber onde olhar (logs do n8n, Supabase).",
-              "Resolver sem mexer no que não está quebrado."
-            ]},
-            { "type": "table", "headers": ["Sintoma", "Causa provável", "Como resolver"], "rows": [
-              ["Login retorna \"Usuário não pertence a esta empresa\"", "`company_name` no `raw_user_meta_data` diverge da constante `company_name` do front (case-sensitive)", "Conferir os dois valores e igualar (ambos `sameka`)"],
-              ["Login pede verificação de e-mail", "`email_confirmed_at` vazio", "Rodar o UPDATE de confirmação (capítulo 02)"],
-              ["Chat não responde", "Credencial do Azure OpenAI ausente/expirada", "Reabrir Credentials → Azure OpenAI e revalidar"],
-              ["Roteiro vem vazio", "Cidade com acento divergente na API Oporttuna", "Usar grafia oficial (ex.: Balneário, com acento)"],
-              ["IA não conhece um produto", "Catálogo não reindexado", "Rodar o workflow Sameka-RAG"]
-            ]},
-            { "type": "callout", "variant": "warning", "title": "Serviços provisionados porém inativos", "items": [
-              "Se Redis/Mongo aparecerem no Cloudfy: estão provisionados, mas nenhum workflow deste cliente os utiliza — não requerem configuração."
-            ]}
+            {
+              "type": "callout",
+              "variant": "info",
+              "title": "Objetivos deste capítulo",
+              "items": [
+                "Diagnosticar os erros mais frequentes.",
+                "Saber onde olhar (logs do n8n, Supabase).",
+                "Resolver sem mexer no que não está quebrado."
+              ]
+            },
+            {
+              "type": "table",
+              "headers": ["Sintoma", "Causa provável", "Como resolver"],
+              "rows": [
+                [
+                  "Login retorna \"Usuário não pertence a esta empresa\"",
+                  "`company_name` no `raw_user_meta_data` diverge da constante `company_name` do front (case-sensitive)",
+                  "Conferir os dois valores e igualar (ambos `sameka`)"
+                ],
+                [
+                  "Login pede verificação de e-mail",
+                  "`email_confirmed_at` vazio",
+                  "Rodar o UPDATE de confirmação (capítulo 02)"
+                ],
+                [
+                  "Chat não responde",
+                  "Credencial do Azure OpenAI ausente/expirada",
+                  "Reabrir Credentials → Azure OpenAI e revalidar"
+                ],
+                [
+                  "Roteiro vem vazio",
+                  "Cidade com acento divergente na API Oporttuna",
+                  "Usar grafia oficial (ex.: Balneário, com acento)"
+                ],
+                [
+                  "IA não conhece um produto",
+                  "Catálogo não reindexado",
+                  "Rodar o workflow Sameka-RAG"
+                ]
+              ]
+            },
+            {
+              "type": "callout",
+              "variant": "warning",
+              "title": "Serviços provisionados porém inativos",
+              "items": [
+                "Se Redis/Mongo aparecerem no Cloudfy: estão provisionados, mas nenhum workflow deste cliente os utiliza — não requerem configuração."
+              ]
+            }
           ]
         }
       ]
@@ -340,24 +730,39 @@
         {
           "heading": "Regras invioláveis",
           "blocks": [
-            { "type": "callout", "variant": "info", "title": "Objetivos deste capítulo", "items": [
-              "Proteger segredos e dados de usuários.",
-              "Conhecer as ações proibidas.",
-              "Manter o ambiente seguro no dia a dia."
-            ]},
-            { "type": "callout", "variant": "danger", "title": "Nunca faça", "items": [
-              "Colocar `SUPABASE_SERVICE_ROLE_KEY`, senha do Postgres ou token longo no front-end.",
-              "Rodar `DROP ... CASCADE` em workflows ou migrations.",
-              "Usar `ON DELETE CASCADE` em FK apontando para `auth.users`.",
-              "Chamar `files.delete` do Google Drive em qualquer workflow.",
-              "Versionar arquivos `.env` com segredos reais."
-            ]},
-            { "type": "callout", "variant": "info", "title": "Sempre faça", "items": [
-              "Trocar a senha do admin após o primeiro acesso.",
-              "Manter segredos apenas no n8n (Credentials) ou em variáveis de ambiente.",
-              "Usar a `anon key` pública no front; nunca a service role.",
-              "Conferir `company_name` ao criar novos usuários."
-            ]}
+            {
+              "type": "callout",
+              "variant": "info",
+              "title": "Objetivos deste capítulo",
+              "items": [
+                "Proteger segredos e dados de usuários.",
+                "Conhecer as ações proibidas.",
+                "Manter o ambiente seguro no dia a dia."
+              ]
+            },
+            {
+              "type": "callout",
+              "variant": "danger",
+              "title": "Nunca faça",
+              "items": [
+                "Colocar `SUPABASE_SERVICE_ROLE_KEY`, senha do Postgres ou token longo no front-end.",
+                "Rodar `DROP ... CASCADE` em workflows ou migrations.",
+                "Usar `ON DELETE CASCADE` em FK apontando para `auth.users`.",
+                "Chamar `files.delete` do Google Drive em qualquer workflow.",
+                "Versionar arquivos `.env` com segredos reais."
+              ]
+            },
+            {
+              "type": "callout",
+              "variant": "info",
+              "title": "Sempre faça",
+              "items": [
+                "Trocar a senha do admin após o primeiro acesso.",
+                "Manter segredos apenas no n8n (Credentials) ou em variáveis de ambiente.",
+                "Usar a `anon key` pública no front; nunca a service role.",
+                "Conferir `company_name` ao criar novos usuários."
+              ]
+            }
           ]
         }
       ]
@@ -369,25 +774,64 @@
         {
           "heading": "Rotina de manutenção",
           "blocks": [
-            { "type": "callout", "variant": "info", "title": "Objetivos deste capítulo", "items": [
-              "Saber o que revisar periodicamente.",
-              "Como adicionar usuários e atualizar o catálogo.",
-              "Quando escalar para o time de desenvolvimento."
-            ]},
-            { "type": "table", "headers": ["Tarefa", "Frequência", "Onde fazer"], "rows": [
-              ["Criar/editar usuários", "Sob demanda", "Painel admin do Sameka"],
-              ["Atualizar catálogo (RAG)", "A cada nova coleção", "Drive + workflow Sameka-RAG"],
-              ["Revisar credenciais (rotação de chaves)", "Trimestral", "n8n → Credentials"],
-              ["Backup do banco", "Conforme política", "Supabase / Cloudfy"],
-              ["Conferir logs de erro", "Semanal", "n8n → Executions"]
-            ]},
-            { "type": "steps", "items": [
-              { "action": "Adicione um usuário novo pelo painel admin.", "where": "Sameka → Painel admin → **Adicionar usuário**", "expect": "Nova linha na lista com `company_name = sameka` e papel definido.", "screenshot": "09-admin-add-user.png" },
-              { "action": "Acompanhe execuções dos workflows.", "where": "n8n → **Executions**", "expect": "Lista de execuções com status (sucesso/erro) para auditoria.", "screenshot": "09-n8n-executions.png" }
-            ]},
-            { "type": "callout", "variant": "info", "title": "Quando escalar", "items": [
-              "Erros recorrentes nos Executions do n8n, mudança de modelo de IA ou novas integrações: acione o time de desenvolvimento com o print do erro e o nome do workflow."
-            ]}
+            {
+              "type": "callout",
+              "variant": "info",
+              "title": "Objetivos deste capítulo",
+              "items": [
+                "Saber o que revisar periodicamente.",
+                "Como adicionar usuários e atualizar o catálogo.",
+                "Quando escalar para o time de desenvolvimento."
+              ]
+            },
+            {
+              "type": "table",
+              "headers": ["Tarefa", "Frequência", "Onde fazer"],
+              "rows": [
+                [
+                  "Criar/editar usuários",
+                  "Sob demanda",
+                  "Painel admin do Sameka"
+                ],
+                [
+                  "Atualizar catálogo (RAG)",
+                  "A cada nova coleção",
+                  "Drive + workflow Sameka-RAG"
+                ],
+                [
+                  "Revisar credenciais (rotação de chaves)",
+                  "Trimestral",
+                  "n8n → Credentials"
+                ],
+                ["Backup do banco", "Conforme política", "Supabase / Cloudfy"],
+                ["Conferir logs de erro", "Semanal", "n8n → Executions"]
+              ]
+            },
+            {
+              "type": "steps",
+              "items": [
+                {
+                  "action": "Adicione um usuário novo pelo painel admin.",
+                  "where": "Sameka → Painel admin → **Adicionar usuário**",
+                  "expect": "Nova linha na lista com `company_name = sameka` e papel definido.",
+                  "screenshot": "09-admin-add-user.png"
+                },
+                {
+                  "action": "Acompanhe execuções dos workflows.",
+                  "where": "n8n → **Executions**",
+                  "expect": "Lista de execuções com status (sucesso/erro) para auditoria.",
+                  "screenshot": "09-n8n-executions.png"
+                }
+              ]
+            },
+            {
+              "type": "callout",
+              "variant": "info",
+              "title": "Quando escalar",
+              "items": [
+                "Erros recorrentes nos Executions do n8n, mudança de modelo de IA ou novas integrações: acione o time de desenvolvimento com o print do erro e o nome do workflow."
+              ]
+            }
           ]
         }
       ]
