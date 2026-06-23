@@ -4448,10 +4448,23 @@
           l.telefones != null ? l.telefones : l.telefone,
         );
         out.emails = _asLeadArray(l.emails != null ? l.emails : l.email);
-        out.redesSociais = _asLeadArray(
-          l.redesSociais != null ? l.redesSociais : l.redes,
+        // Redes sociais + sites institucionais. A API Oporttuna devolve
+        // `sites` (URLs de site/loja) separado de `redesSociais`; juntamos os
+        // dois aqui para renderizar ambos na seção "Redes Sociais" (links com
+        // rótulo "Site" para URLs genéricas).
+        out.redesSociais = [
+          ..._asLeadArray(l.redesSociais != null ? l.redesSociais : l.redes),
+          ..._asLeadArray(l.sites != null ? l.sites : l.site),
+        ].filter((v, i, a) => v && a.indexOf(v) === i);
+        // Imagens: a API Oporttuna devolve `fotos` (Google Places); o catálogo
+        // pode usar `imagens`/`images`. Aceitamos todos os aliases.
+        out.imagens = _asLeadArray(
+          l.imagens != null
+            ? l.imagens
+            : l.images != null
+              ? l.images
+              : l.fotos,
         );
-        out.imagens = _asLeadArray(l.imagens != null ? l.imagens : l.images);
         if (out.possuiPresencaDigital == null) {
           const pd =
             l.temPresencaDigital != null
