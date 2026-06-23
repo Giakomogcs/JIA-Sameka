@@ -1,0 +1,3 @@
+# Sessões Playwright e caches (nunca versionar)
+.auth/
+.cache/
