@@ -8,10 +8,7 @@
         "color": 7
       },
       "type": "n8n-nodes-base.stickyNote",
-      "position": [
-        12848,
-        12352
-      ],
+      "position": [12848, 12352],
       "typeVersion": 1,
       "id": "d3433f5a-c08a-49a4-8c27-acfb7852218f",
       "name": "Sticky Note5"
@@ -24,10 +21,7 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [
-        12512,
-        13200
-      ],
+      "position": [12512, 13200],
       "id": "9bc42de3-c120-4a70-8a93-0e2442a92dda",
       "name": "Delete Edited Message",
       "credentials": {
@@ -47,10 +41,7 @@
       },
       "id": "453af1d0-b692-4ca8-9b0c-f6f192941b60",
       "name": "PruneResponse",
-      "position": [
-        12720,
-        13200
-      ],
+      "position": [12720, 13200],
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1
     },
@@ -65,10 +56,7 @@
       "name": "Sticky Note3",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [
-        13600,
-        12592
-      ]
+      "position": [13600, 12592]
     },
     {
       "parameters": {
@@ -80,10 +68,7 @@
       "name": "Sticky Note4",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [
-        12288,
-        12592
-      ]
+      "position": [12288, 12592]
     },
     {
       "parameters": {
@@ -103,10 +88,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
       "typeVersion": 1,
-      "position": [
-        13824,
-        12752
-      ],
+      "position": [13824, 12752],
       "id": "47db2ea2-9896-4666-bd0f-b8f22eb27760",
       "name": "search_knowledge_base",
       "credentials": {
@@ -128,10 +110,7 @@
       },
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.5,
-      "position": [
-        12880,
-        13024
-      ],
+      "position": [12880, 13024],
       "id": "1ed7a538-c6d3-4c04-a1b3-3d3a313a68e0",
       "name": "List Documents",
       "credentials": {
@@ -153,10 +132,7 @@
       },
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.5,
-      "position": [
-        13152,
-        13024
-      ],
+      "position": [13152, 13024],
       "id": "d71e8157-d6b5-405a-88fa-4efed512a98d",
       "name": "Get File Contents",
       "credentials": {
@@ -176,10 +152,7 @@
       },
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.5,
-      "position": [
-        13008,
-        13024
-      ],
+      "position": [13008, 13024],
       "id": "d56918df-380e-4cf9-a192-86e2de06099a",
       "name": "Query Document Rows",
       "credentials": {
@@ -201,10 +174,7 @@
       "name": "RAG AI Agent",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.6,
-      "position": [
-        12816,
-        12688
-      ]
+      "position": [12816, 12688]
     },
     {
       "parameters": {
@@ -214,10 +184,7 @@
       "name": "Respond to Webhook",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [
-        13168,
-        12688
-      ]
+      "position": [13168, 12688]
     },
     {
       "parameters": {
@@ -230,10 +197,7 @@
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [
-        12352,
-        12688
-      ],
+      "position": [12352, 12688],
       "webhookId": "693e9c67-afca-4f79-9a88-a3f6f5972ddd"
     },
     {
@@ -260,10 +224,7 @@
       "name": "Edit Fields",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [
-        12608,
-        12688
-      ]
+      "position": [12608, 12688]
     },
     {
       "parameters": {
@@ -273,10 +234,7 @@
       "name": "Postgres Chat Memory",
       "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
       "typeVersion": 1.1,
-      "position": [
-        12752,
-        13024
-      ],
+      "position": [12752, 13024],
       "credentials": {
         "postgres": {
           "id": "jFjeYH6Nt3aRNkoM",
@@ -293,10 +251,7 @@
       },
       "id": "02eb614f-e380-40ad-8062-352f4cf16ff5",
       "name": "PruneWebhook",
-      "position": [
-        12304,
-        13200
-      ],
+      "position": [12304, 13200],
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "webhookId": "f762ae4e-b5d4-42be-982b-e3649b2a45fd"
@@ -310,10 +265,7 @@
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [
-        12272,
-        12400
-      ],
+      "position": [12272, 12400],
       "id": "59fe89a9-9db9-474e-8c79-a0b5e9eb7363",
       "name": "Test Connection",
       "webhookId": "291e54fe-5a3b-4565-9fa3-c18879fd6d28"
@@ -371,10 +323,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
-      "position": [
-        13408,
-        12992
-      ],
+      "position": [13408, 12992],
       "id": "4f25a480-63a8-43d6-b9d7-a541a8871ff4",
       "name": "Consultar_Leads_Oporttuna"
     },
@@ -431,10 +380,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
-      "position": [
-        13408,
-        13440
-      ],
+      "position": [13408, 13440],
       "id": "cccf638c-3fb6-4d26-97ca-3c831b615884",
       "name": "Consultar_Clientes_Sameka_API_Oporttuna"
     },
@@ -445,10 +391,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatAzureOpenAi",
       "typeVersion": 1,
-      "position": [
-        12560,
-        12992
-      ],
+      "position": [12560, 12992],
       "id": "103708d1-0d65-4527-9e77-8d0605f2d435",
       "name": "Azure OpenAI Chat Model",
       "credentials": {
@@ -480,10 +423,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
-      "position": [
-        13408,
-        12880
-      ],
+      "position": [13408, 12880],
       "id": "5bd275dd-2336-4de0-ab1d-52f9bfe91e54",
       "name": "Consultar_IBGE"
     },
@@ -508,10 +448,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
-      "position": [
-        13408,
-        13104
-      ],
+      "position": [13408, 13104],
       "id": "e84c358f-1367-4fbf-bf05-6064d266c2c1",
       "name": "Consultar_Planilha_Inteligente"
     },
@@ -568,10 +505,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
-      "position": [
-        13408,
-        13328
-      ],
+      "position": [13408, 13328],
       "id": "11760f0d-a1e8-4a88-aa23-ef42a0031578",
       "name": "Consultar_Imagens_Produtos"
     },
@@ -582,10 +516,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.embeddingsAzureOpenAi",
       "typeVersion": 1,
-      "position": [
-        13824,
-        12928
-      ],
+      "position": [13824, 12928],
       "id": "308f77e1-e60b-4b00-bc2e-6d2e0704eacd",
       "name": "Embeddings Azure OpenAI",
       "credentials": {
@@ -601,10 +532,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.chatTrigger",
       "typeVersion": 1.4,
-      "position": [
-        12352,
-        12832
-      ],
+      "position": [12352, 12832],
       "id": "7bab31b1-4805-49bb-92ab-3143f159fcf2",
       "name": "When chat message received",
       "webhookId": "3d3dd4b1-f365-42ed-a3cb-4148f8a43aa0"
