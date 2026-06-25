@@ -7,10 +7,7 @@
       "name": "Execute Workflow Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1,
-      "position": [
-        -112,
-        0
-      ]
+      "position": [-112, 0]
     },
     {
       "parameters": {
@@ -20,10 +17,7 @@
       "name": "Normalizar Input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        64,
-        0
-      ]
+      "position": [64, 0]
     },
     {
       "parameters": {
@@ -38,10 +32,7 @@
       "name": "Login API",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [
-        256,
-        0
-      ]
+      "position": [256, 0]
     },
     {
       "parameters": {
@@ -97,10 +88,7 @@
       "name": "Consultar Clientes",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [
-        464,
-        0
-      ]
+      "position": [464, 0]
     },
     {
       "parameters": {
@@ -110,10 +98,7 @@
       "name": "Filtrar Dados",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        656,
-        0
-      ]
+      "position": [656, 0]
     }
   ],
   "pinData": {},
