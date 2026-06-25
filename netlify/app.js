@@ -817,6 +817,16 @@ function getSocialClass(url) {
   if (u.includes("youtube")) return "social-youtube";
   return "";
 }
+// Garante que o link de rede social tenha protocolo absoluto. Sem isso,
+// URLs como "instagram.com/loja", "www.instagram.com/loja" ou "@handle"
+// viram caminho relativo e o navegador fica preso dentro do app.
+function normalizeSocialUrl(url) {
+  if (!url) return "#";
+  let u = String(url).trim();
+  if (/^https?:\/\//i.test(u)) return u;
+  if (u.startsWith("@")) return "https://instagram.com/" + u.slice(1);
+  return "https://" + u.replace(/^\/+/, "");
+}
 const MISMATCH_KEYWORDS = [
   "veículo",
   "veiculo",
@@ -1309,7 +1319,7 @@ function renderLeadCards(leads, priorKeys) {
                   <div class="lead-section-label"><i data-lucide="share-2"></i> Redes Sociais</div>
                   <div class="lead-social-links">`;
       lead.redesSociais.forEach((s) => {
-        html += `<a href="${s}" target="_blank" rel="noopener" class="lead-social-link ${getSocialClass(s)}"><i data-lucide="${getSocialIcon(s)}"></i>${getSocialLabel(s)}</a>`;
+        html += `<a href="${normalizeSocialUrl(s)}" target="_blank" rel="noopener" class="lead-social-link ${getSocialClass(s)}"><i data-lucide="${getSocialIcon(s)}"></i>${getSocialLabel(s)}</a>`;
       });
       html += `</div></div>`;
     }
