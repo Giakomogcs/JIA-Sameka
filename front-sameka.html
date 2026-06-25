@@ -4469,11 +4469,7 @@
         // Imagens: a API Oporttuna devolve `fotos` (Google Places); o catálogo
         // pode usar `imagens`/`images`. Aceitamos todos os aliases.
         out.imagens = _asLeadArray(
-          l.imagens != null
-            ? l.imagens
-            : l.images != null
-              ? l.images
-              : l.fotos,
+          l.imagens != null ? l.imagens : l.images != null ? l.images : l.fotos,
         );
         if (out.possuiPresencaDigital == null) {
           const pd =
